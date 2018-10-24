@@ -1,0 +1,28 @@
+{
+  "name": "adaguc-webmapjs",
+  "version": "3.2.2",
+  "description": "This is an OGC WMS client library, capable of parsing a service getcapabilities and display geographical layers in a map component\"",
+  "main": "WMJSMap.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/maartenplieger/adaguc-webmapjs.git"
+  },
+  "keywords": [
+    "OGC",
+    "WMS",
+    "Geographical",
+    "Maps",
+    "Layers",
+    "Visualization",
+    "Canvas"
+  ],
+  "author": "Maarten Plieger",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/maartenplieger/adaguc-webmapjs/issues"
+  },
+  "homepage": "https://github.com/maartenplieger/adaguc-webmapjs#readme"
+}
