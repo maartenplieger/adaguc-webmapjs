@@ -43,6 +43,7 @@ export default class WMJSLayer {
     this.getCapabilitiesDoc = undefined;
     this.serviceTitle = 'not defined';
     this.parentMaps = [];
+    this.sldURL;
   }
 
   constructor (options) {
@@ -74,9 +75,11 @@ export default class WMJSLayer {
     this.setService = this.setService.bind(this);
     this.getDimension = this.getDimension.bind(this);
     this.getProjection = this.getProjection.bind(this);
+    this.setSLDURL = this.setSLDURL.bind(this);
     this.display = this.display.bind(this);
     this.init();
     this._options = options;
+    this.sldURL = null;
     if (options) {
       // alert("WMJSLAYER:"+options.service);
       this.service = options.service;
@@ -89,6 +92,9 @@ export default class WMJSLayer {
 
       if (options.style) {
         this.currentStyle = options.style;
+      }
+      if (options.sldURL) {
+        this.sldURL = options.sldURL;
       }
       if (options.format) this.format = options.format; else this.format = 'image/png';
       if (options.opacity) {
@@ -836,6 +842,10 @@ export default class WMJSLayer {
         return returnSRS;
       }
     }
+  }
+
+  setSLDURL (url) {
+    this.sldURL = url;
   }
 
   display (displayornot) {

@@ -1466,6 +1466,11 @@ export default class WMJSMap {
         request += '&I=' + x;
         request += '&J=' + y;
       }
+
+      if (layer.sldURL) {
+        request += '&SLD=' + URLEncode(layer.sldURL);
+      }
+
       request += '&FORMAT=image/gif';
       request += '&INFO_FORMAT=image/png';
       request += '&STYLES=';
@@ -1488,6 +1493,10 @@ export default class WMJSMap {
     request += 'HEIGHT=' + (this.height) + '&';
 
     request += this.getBBOXandProjString(layer);
+
+    if (layer.sldURL) {
+      request += 'SLD=' + URLEncode(layer.sldURL) + '&';
+    }
     request += 'STYLES=' + URLEncode(layer.currentStyle) + '&';
     request += 'FORMAT=' + layer.format + '&';
     if (layer.transparent === true) {
@@ -1592,6 +1601,11 @@ export default class WMJSMap {
         if (layer.legendIsDimensionDependant === true) {
           legendURL += this.getDimensionRequestString(layer) + '&';
         }
+
+        if (layer.sldURL) {
+          legendURL += '&SLD=' + URLEncode(layer.sldURL);
+        }
+
         legendURL += '&transparent=true&width=90&height=250&';
       } catch (e) {
         return undefined;
