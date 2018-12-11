@@ -448,7 +448,7 @@ export default class WMJSLayer {
           layer.getlegendgraphicURL = undefined;
           try { layer.getlegendgraphicURL = capabilityObject.Request.GetLegendGraphic.DCPType.HTTP.Get.OnlineResource.attr['xlink:href']; } catch (e) {}
 
-          if (!isDefined(layer.getlegendgraphicURL)) { layer.getlegendgraphicURL = layer.service; error('GetLegendGraphic OnlineResource is not specified. Using default.'); }
+          if (!isDefined(layer.getlegendgraphicURL)) { layer.getlegendgraphicURL = layer.service; }
 
           // TODO Should be arranged also for the other services:
           layer.getmapURL = WMJScheckURL(layer.getmapURL);

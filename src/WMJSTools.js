@@ -814,5 +814,5 @@ export const addMouseWheelEvent = (element, mouseWheelHandler) => {
 };
 
 export const removeMouseWheelEvent = (element, mouseWheelHandler) => {
-  console.error("TODO IMPLEMENT removeMouseWheelEvent in WMJSTools.js");
+  console.warn("TODO: Implement removeMouseWheelEvent in WMJSTools.js");
 };

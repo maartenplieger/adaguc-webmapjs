@@ -416,7 +416,11 @@ export class WMJSService {
       getNames(data.children);
       succes(layerNames);
     };
-    this.getNodes(callback, failure, forceReload, xml2jsonrequestURL);
+    try {
+      this.getNodes(callback, failure, forceReload, xml2jsonrequestURL);
+    } catch(e) {
+      failure(e);
+    }
   };
 
   /** Calls succes with an array of all layerobjects

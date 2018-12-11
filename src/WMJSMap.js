@@ -84,7 +84,7 @@ class GetFeatureInfoObject {
   */
 export default class WMJSMap {
   constructor (_element, _xml2jsonrequestURL) {
-    this.WebMapJSMapVersion = '3.2.2';
+    this.WebMapJSMapVersion = '3.2.3';
     this.base = './';
     this.noimage = undefined;
     this.showDialog = true;
@@ -758,6 +758,7 @@ export default class WMJSMap {
     };
 
     let adagucBeforeCanvasDisplay = (ctx) => {
+      // console.log('adagucBeforeCanvasDisplay' + this.getId());
       /* Map Pin */
       if (this.divMapPin.displayMapPin) {
         WMJSDrawMarker(ctx, this.divMapPin.x, this.divMapPin.y, '#9090FF', '#000');
@@ -771,25 +772,27 @@ export default class WMJSMap {
           if (isDefined(legendUrl)) {
 
             let image = legendImageStore.getImage(legendUrl);
-            if (image.isLoaded() === false && image.isLoading() === false) {
-              image.load();
-            } else {
-              let el = image.getElement()[0];
-              let legendW = parseInt(el.width) + 4;
-              let legendH = parseInt(el.height) + 4;
-              legendPosX += (legendW + 4);
-              let legendX = this.width - legendPosX + 2;
-              let legendY = this.height - (legendH) - 2;
-              ctx.beginPath();
-              ctx.fillStyle = '#FFFFFF';
-              ctx.lineWidth = 0.3;
-              ctx.globalAlpha = 0.5;
-              ctx.strokeStyle = '#000000';
-              ctx.rect(parseInt(legendX) + 0.5, parseInt(legendY) + 0.5, legendW, legendH);
-              ctx.fill();
-              ctx.stroke();
-              ctx.globalAlpha = 1.0;
-              ctx.drawImage(el, legendX, legendY);
+            if (image.hasError() === false) {
+              if (image.isLoaded() === false && image.isLoading() === false) {
+                image.load();
+              } else {
+                let el = image.getElement()[0];
+                let legendW = parseInt(el.width) + 4;
+                let legendH = parseInt(el.height) + 4;
+                legendPosX += (legendW + 4);
+                let legendX = this.width - legendPosX + 2;
+                let legendY = this.height - (legendH) - 2;
+                ctx.beginPath();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.lineWidth = 0.3;
+                ctx.globalAlpha = 0.5;
+                ctx.strokeStyle = '#000000';
+                ctx.rect(parseInt(legendX) + 0.5, parseInt(legendY) + 0.5, legendW, legendH);
+                ctx.fill();
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+                ctx.drawImage(el, legendX, legendY);
+              }
             }
           }
         }
@@ -1601,11 +1604,9 @@ export default class WMJSMap {
         if (layer.legendIsDimensionDependant === true) {
           legendURL += this.getDimensionRequestString(layer) + '&';
         }
-
         if (layer.sldURL) {
           legendURL += '&SLD=' + URLEncode(layer.sldURL);
-        }
-
+        }          
         legendURL += '&transparent=true&width=90&height=250&';
       } catch (e) {
         return undefined;
@@ -2210,10 +2211,11 @@ export default class WMJSMap {
       this.layers[i].setAutoUpdate(false);
     }
     this.detachEvents();
+
+    this.callBack.destroy();
   };
 
   detachEvents () {
-    console.log('Detaching...');
     this.baseDiv.off('mousedown');
     // this.baseDiv.off('mousewheel');
     removeMouseWheelEvent($(this.baseDiv).get(0), this.mouseWheelEvent);
