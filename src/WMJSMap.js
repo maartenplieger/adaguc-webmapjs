@@ -84,7 +84,7 @@ class GetFeatureInfoObject {
   */
 export default class WMJSMap {
   constructor (_element, _xml2jsonrequestURL) {
-    this.WebMapJSMapVersion = '3.2.3';
+    this.WebMapJSMapVersion = '3.2.4';
     this.base = './';
     this.noimage = undefined;
     this.showDialog = true;
