@@ -53,6 +53,7 @@ export default class WMJSLayer {
     this.toggleAutoUpdate = this.toggleAutoUpdate.bind(this);
     this.setAutoUpdate = this.setAutoUpdate.bind(this);
     this.setOpacity = this.setOpacity.bind(this);
+    this.getOpacity = this.getOpacity.bind(this);
     this.remove = this.remove.bind(this);
     this.moveUp = this.moveUp.bind(this);
     this.moveDown = this.moveDown.bind(this);
@@ -167,6 +168,10 @@ export default class WMJSLayer {
     for (let j = 0; j < this.parentMaps.length; j++) {
       this.parentMaps[j].redrawBuffer();
     }
+  }
+
+  getOpacity () {
+    return this.opacity;
   }
 
   remove () {
@@ -348,6 +353,294 @@ export default class WMJSLayer {
     }
   };
 
+  __parseGetCapForLayer (layer, getcapabilitiesjson, layerDoneCallback, fail) {
+    let jsondata = getcapabilitiesjson;
+    if (jsondata === 0 || jsondata === undefined) {
+      layer.title = I18n.service_has_error.text;
+      layer.abstract = I18n.not_available_message.text;
+      fail(layer, I18n.unable_to_connect_server.text);
+      return;
+    }
+
+    let j = 0;
+    /* Get the Capability object, Get the rootLayer */
+    let capabilityObject;
+    try {
+      capabilityObject = layer.WMJSService.getCapabilityElement(getcapabilitiesjson);
+    } catch (e) {
+      fail(layer, e);
+      return;
+    }
+
+    layer.version = layer.WMJSService.version;
+
+    // Get the rootLayer
+    let rootLayer = capabilityObject.Layer;
+    if (!isDefined(rootLayer)) {
+      fail(layer, 'No Layer element in service'); return;
+    }
+
+    try {
+      layer.serviceTitle = rootLayer.Title.value;
+    } catch (e) {
+      // fail(layer,'Service has no title');return;
+      layer.serviceTitle = 'Unnamed service';
+    }
+
+    this.optimalFormat = 'image/png';
+    // Get the optimal image format for this layer
+    try {
+      let serverFormats = capabilityObject.Request.GetMap.Format;
+      for (let f = 0; f < serverFormats.length; f++) {
+        if (serverFormats[f].value.indexOf('24') > 0) this.optimalFormat = serverFormats[f].value;
+        if (serverFormats[f].value.indexOf('32') > 0) this.optimalFormat = serverFormats[f].value;
+      }
+    } catch (e) {
+      error('This WMS service has no getmap formats listed: using image/png');
+    }
+
+    if (layer.name === undefined || layer.name.length < 1) {
+      layer.title = WMJSEmptyLayerTitle;
+      layer.abstract = I18n.not_available_message.text;
+      layerDoneCallback(layer);
+      return;
+    }
+
+    let foundLayer = 0;
+    // Function will be called when the layer with the right name is found in the getcap doc
+    let foundLayerFunction = (jsonlayer, path, objectpath) => {
+      layer.jsonlayer_v1_1_1 = jsonlayer;
+
+      layer.getmapURL = undefined;
+      try { layer.getmapURL = capabilityObject.Request.GetMap.DCPType.HTTP.Get.OnlineResource.attr['xlink:href']; } catch (e) {}
+      if (!isDefined(layer.getmapURL)) { layer.getmapURL = layer.service; error('GetMap OnlineResource is not specified. Using default.'); }
+
+      layer.getfeatureinfoURL = undefined;
+      try { layer.getfeatureinfoURL = capabilityObject.Request.GetFeatureInfo.DCPType.HTTP.Get.OnlineResource.attr['xlink:href']; } catch (e) {}
+      if (!isDefined(layer.getfeatureinfoURL)) { layer.getfeatureinfoURL = layer.service; error('GetFeatureInfo OnlineResource is not specified. Using default.'); }
+
+      layer.getlegendgraphicURL = undefined;
+      try { layer.getlegendgraphicURL = capabilityObject.Request.GetLegendGraphic.DCPType.HTTP.Get.OnlineResource.attr['xlink:href']; } catch (e) {}
+
+      if (!isDefined(layer.getlegendgraphicURL)) { layer.getlegendgraphicURL = layer.service; }
+
+      // TODO Should be arranged also for the other services:
+      layer.getmapURL = WMJScheckURL(layer.getmapURL);
+      layer.getfeatureinfoURL = WMJScheckURL(layer.getfeatureinfoURL);
+      layer.getlegendgraphicURL = WMJScheckURL(layer.getlegendgraphicURL);
+
+      layer.getCapabilitiesDoc = jsondata;
+      layer.title = jsonlayer.Title.value;
+      try {
+        layer.abstract = jsonlayer.Abstract.value;
+      } catch (e) {
+        layer.abstract = I18n.not_available_message.text;
+      }
+      layer.path = path;
+      layer.objectpath = objectpath;
+
+      layer.styles = undefined;
+      // layer.format=optimalFormat;
+      layer.jsonlayer = layer;
+      // layer.currentStyle='';
+      // alert('foundLayerFunction 1');
+      try {
+        let layerStyles = '';
+        if (jsonlayer.Style) {
+          layerStyles = toArray(jsonlayer.Style);
+        }
+        layer.styles = layerStyles;
+
+        // parse styles
+
+        for (let j = 0; j < layer.styles.length; j++) {
+          let style = layer.styles[j];
+          style.index = j;
+          style.nrOfStyles = layer.styles.length;
+          style.title = 'default';
+          style.name = 'default';
+          style.legendURL = '';
+          style['abstracttext'] = 'No abstract available';
+
+          try { style.title = style.Title.value; } catch (e) {}
+          try { style.name = style.Name.value; } catch (e) {}
+          try { style.legendURL = style.LegendURL.OnlineResource.attr['xlink:href']; } catch (e) {}
+          try { style['abstracttext'] = style.Abstract.value; } catch (e) {}
+        }
+
+        if (layer.currentStyle === '') {
+          layer.currentStyle = layer.styles[0].Name.value;
+        }
+
+        layer.setStyle(layer.currentStyle);
+      } catch (e) {
+        layer.currentStyle = '';
+        layer.styles = '';
+        error('No styles found for layer ' + layer.title);
+      }
+      layer.configureDimensions();
+      // alert('foundLayerFunction 3_'+layer.dimensions.length);
+      let gp = toArray(jsonlayer.SRS);
+
+      if (isDefined(jsonlayer.CRS)) {
+        gp = toArray(jsonlayer.CRS);
+      }
+
+      layer.projectionProperties = [];
+
+      let tempSRS = [];
+
+      let getgpbbox = (data) => {
+        if (isDefined(data.BoundingBox)) {
+          // Fill in SRS and BBOX on basis of BoundingBox attribute
+          let gpbbox = toArray(data.BoundingBox);
+          for (j = 0; j < gpbbox.length; j++) {
+            let srs;
+            srs = gpbbox[j].attr.SRS;
+
+            if (isDefined(gpbbox[j].attr.CRS)) {
+              srs = gpbbox[j].attr.CRS;
+            }
+            if (srs) {
+              if (srs.length > 0) {
+                srs = decodeURIComponent(srs);
+              }
+            }
+            let alreadyAdded = false;
+            for (let i = 0; i < layer.projectionProperties.length; i++) {
+              if (srs === layer.projectionProperties[i].srs) {
+                alreadyAdded = true;
+                break;
+              }
+            }
+
+            if (alreadyAdded === false) {
+              let geoProperty = new WMJSProjection();
+
+              geoProperty.srs = srs;
+              let swapBBOX = false;
+              if (layer.version === WMSVersion.version130) {
+                if (geoProperty.srs === 'EPSG:4326' && layer.wms130bboxcompatibilitymode === false) {
+                  swapBBOX = true;
+                }
+              }
+              if (swapBBOX === false) {
+                geoProperty.bbox.left = parseFloat(gpbbox[j].attr.minx);
+                geoProperty.bbox.bottom = parseFloat(gpbbox[j].attr.miny);
+                geoProperty.bbox.right = parseFloat(gpbbox[j].attr.maxx);
+                geoProperty.bbox.top = parseFloat(gpbbox[j].attr.maxy);
+              } else {
+                geoProperty.bbox.left = parseFloat(gpbbox[j].attr.miny);
+                geoProperty.bbox.bottom = parseFloat(gpbbox[j].attr.minx);
+                geoProperty.bbox.right = parseFloat(gpbbox[j].attr.maxy);
+                geoProperty.bbox.top = parseFloat(gpbbox[j].attr.maxx);
+              }
+
+              layer.projectionProperties.push(geoProperty);
+              tempSRS.push(geoProperty.srs);
+            }
+          }
+        }
+        /* for(let j=0;j<layer.projectionProperties.length;j++){
+          let geoProperty = layer.projectionProperties[j];
+          if(geoProperty.srs === "EPSG:4326" || geoProperty.srs === "CRS:84"){
+            if(isDefined(data.EX_GeographicBoundingBox)){
+              let left   = data.EX_GeographicBoundingBox.westBoundLongitude.value;
+              let bottom = data.EX_GeographicBoundingBox.southBoundLatitude.value;
+              let right  = data.EX_GeographicBoundingBox.eastBoundLongitude.value;
+              let top    = data.EX_GeographicBoundingBox.northBoundLatitude.value;
+              if(isDefined(left) && isDefined(left) && isDefined(left) && isDefined(left)){
+                geoProperty.bbox.left =   parseFloat(left);
+                geoProperty.bbox.bottom = parseFloat(bottom);
+                geoProperty.bbox.right =  parseFloat(right);
+                geoProperty.bbox.top =    parseFloat(top);
+              }
+            }
+          }
+        } */
+      };
+
+      getgpbbox(jsonlayer);
+      getgpbbox(rootLayer);
+
+      // Fill in SRS  on basis of SRS attribute
+      for (j = 0; j < gp.length; j++) {
+        if (tempSRS.indexOf(gp[j].value) === -1) {
+          let geoProperty = new WMJSProjection();
+          error('Warning: BoundingBOX missing for SRS ' + gp[j].value);
+          geoProperty.bbox.left = -180;
+          geoProperty.bbox.bottom = -90;
+          geoProperty.bbox.right = 180;
+          geoProperty.bbox.top = 90;
+          geoProperty.srs = gp[j].value;
+          layer.projectionProperties.push(geoProperty);
+        }
+      }
+      tempSRS = '';
+      /* Check if layer is queryable */
+      layer.queryable = false;
+      try {
+        if (parseInt(jsonlayer.attr.queryable) === 1)layer.queryable = true; else layer.queryable = false;
+      } catch (e) {
+        error('Unable to detect whether this layer is queryable (for layer ' + layer.title + ')');
+      }
+      foundLayer = 1;
+    };// [/FoundLayer]
+
+    // Try to recursively find the name in the getcap doc
+    let JSONLayers = toArray(rootLayer.Layer);
+    let path = '';
+    let objectpath = [];
+
+    function recursivelyFindLayer (JSONLayers, path, _objectpath) {
+      let objectpath = [];
+      for (let i = 0; i < _objectpath.length; i++) {
+        objectpath.push(_objectpath[i]);
+      }
+      objectpath.push(JSONLayers);
+
+      for (let j = 0; j < JSONLayers.length; j++) {
+        if (JSONLayers[j].Layer) {
+          let pathnew = path;
+
+          try {
+            pathnew += JSONLayers[j].Title.value + '/';
+          } catch (e) {
+          }
+
+          recursivelyFindLayer(toArray(JSONLayers[j].Layer), pathnew, objectpath);
+        } else {
+          if (JSONLayers[j].Name) {
+            if (JSONLayers[j].Name.value === layer.name) { foundLayerFunction(JSONLayers[j], path, objectpath); return; }
+          }
+        }
+      }
+    }
+    objectpath.push(rootLayer);
+    recursivelyFindLayer(JSONLayers, path, objectpath);
+
+    if (foundLayer === 0) {
+      // Layer was not found...
+      let message = '';
+      if (layer.name) {
+        message = ("Unable to find layer '" + layer.name + "' in service '" + layer.service + "'");
+      } else {
+        message = ("Unable to find layer '" + layer.title + "' in service '" + layer.service + "'");
+      }
+      layer.title = '--- layer not found in service ---';
+      layer.abstract = I18n.not_available_message.text;
+      fail(layer, message);
+      return layer;
+    } else {
+      /* Layer was found */
+      if (layer.onReady) {
+        layer.onReady(layer);
+      }
+    }
+    layerDoneCallback(layer);
+    return layer;
+  }
+
   /**
     * Calls success with a configured layer object
     * Calls options.failure with error message.
@@ -359,12 +652,13 @@ export default class WMJSLayer {
     // this.enabled = false;
     let _this = this;
     _this.hasError = false;
-
     let layerDoneCallback = (layer) => {
-      // _this.enabled = isEnabled;
-      // debug("<Layer enabled is "+_this.enabled);
       if (isDefined(_layerDoneCallback)) {
-        _layerDoneCallback(layer);
+        try {
+          _layerDoneCallback(layer);
+        }catch(e){
+          console.log(e);
+        }
       }
     };
     let fail = (layer, message) => {
@@ -379,294 +673,7 @@ export default class WMJSLayer {
     };
 
     let callback = (data) => {
-      let parseGetCapForLayer = (layer, getcapabilitiesjson) => {
-        let jsondata = getcapabilitiesjson;
-        if (jsondata === 0 || jsondata === undefined) {
-          layer.title = I18n.service_has_error.text;
-          layer.abstract = I18n.not_available_message.text;
-          fail(layer, I18n.unable_to_connect_server.text);
-          return;
-        }
-
-        let j = 0;
-        /* Get the Capability object, Get the rootLayer */
-        let capabilityObject;
-        try {
-          capabilityObject = layer.WMJSService.getCapabilityElement(getcapabilitiesjson);
-        } catch (e) {
-          fail(layer, e);
-          return;
-        }
-
-        layer.version = layer.WMJSService.version;
-
-        // Get the rootLayer
-        let rootLayer = capabilityObject.Layer;
-        if (!isDefined(rootLayer)) {
-          fail(layer, 'No Layer element in service'); return;
-        }
-
-        try {
-          layer.serviceTitle = rootLayer.Title.value;
-        } catch (e) {
-          // fail(layer,'Service has no title');return;
-          layer.serviceTitle = 'Unnamed service';
-        }
-
-        this.optimalFormat = 'image/png';
-        // Get the optimal image format for this layer
-        try {
-          let serverFormats = capabilityObject.Request.GetMap.Format;
-          for (let f = 0; f < serverFormats.length; f++) {
-            if (serverFormats[f].value.indexOf('24') > 0) this.optimalFormat = serverFormats[f].value;
-            if (serverFormats[f].value.indexOf('32') > 0) this.optimalFormat = serverFormats[f].value;
-          }
-        } catch (e) {
-          error('This WMS service has no getmap formats listed: using image/png');
-        }
-
-        if (layer.name === undefined || layer.name.length < 1) {
-          layer.title = WMJSEmptyLayerTitle;
-          layer.abstract = I18n.not_available_message.text;
-          layerDoneCallback(layer);
-          return;
-        }
-
-        let foundLayer = 0;
-        // Function will be called when the layer with the right name is found in the getcap doc
-        let foundLayerFunction = (jsonlayer, path, objectpath) => {
-          layer.jsonlayer_v1_1_1 = jsonlayer;
-
-          layer.getmapURL = undefined;
-          try { layer.getmapURL = capabilityObject.Request.GetMap.DCPType.HTTP.Get.OnlineResource.attr['xlink:href']; } catch (e) {}
-          if (!isDefined(layer.getmapURL)) { layer.getmapURL = layer.service; error('GetMap OnlineResource is not specified. Using default.'); }
-
-          layer.getfeatureinfoURL = undefined;
-          try { layer.getfeatureinfoURL = capabilityObject.Request.GetFeatureInfo.DCPType.HTTP.Get.OnlineResource.attr['xlink:href']; } catch (e) {}
-          if (!isDefined(layer.getfeatureinfoURL)) { layer.getfeatureinfoURL = layer.service; error('GetFeatureInfo OnlineResource is not specified. Using default.'); }
-
-          layer.getlegendgraphicURL = undefined;
-          try { layer.getlegendgraphicURL = capabilityObject.Request.GetLegendGraphic.DCPType.HTTP.Get.OnlineResource.attr['xlink:href']; } catch (e) {}
-
-          if (!isDefined(layer.getlegendgraphicURL)) { layer.getlegendgraphicURL = layer.service; }
-
-          // TODO Should be arranged also for the other services:
-          layer.getmapURL = WMJScheckURL(layer.getmapURL);
-          layer.getfeatureinfoURL = WMJScheckURL(layer.getfeatureinfoURL);
-          layer.getlegendgraphicURL = WMJScheckURL(layer.getlegendgraphicURL);
-
-          layer.getCapabilitiesDoc = jsondata;
-          layer.title = jsonlayer.Title.value;
-          try {
-            layer.abstract = jsonlayer.Abstract.value;
-          } catch (e) {
-            layer.abstract = I18n.not_available_message.text;
-          }
-          layer.path = path;
-          layer.objectpath = objectpath;
-
-          layer.styles = undefined;
-          // layer.format=optimalFormat;
-          layer.jsonlayer = layer;
-          // layer.currentStyle='';
-          // alert('foundLayerFunction 1');
-          try {
-            let layerStyles = '';
-            if (jsonlayer.Style) {
-              layerStyles = toArray(jsonlayer.Style);
-            }
-            layer.styles = layerStyles;
-
-            // parse styles
-
-            for (let j = 0; j < layer.styles.length; j++) {
-              let style = layer.styles[j];
-              style.index = j;
-              style.nrOfStyles = layer.styles.length;
-              style.title = 'default';
-              style.name = 'default';
-              style.legendURL = '';
-              style['abstracttext'] = 'No abstract available';
-
-              try { style.title = style.Title.value; } catch (e) {}
-              try { style.name = style.Name.value; } catch (e) {}
-              try { style.legendURL = style.LegendURL.OnlineResource.attr['xlink:href']; } catch (e) {}
-              try { style['abstracttext'] = style.Abstract.value; } catch (e) {}
-            }
-
-            if (layer.currentStyle === '') {
-              layer.currentStyle = layer.styles[0].Name.value;
-            }
-
-            layer.setStyle(layer.currentStyle);
-          } catch (e) {
-            layer.currentStyle = '';
-            layer.styles = '';
-            error('No styles found for layer ' + layer.title);
-          }
-          layer.configureDimensions();
-          // alert('foundLayerFunction 3_'+layer.dimensions.length);
-          let gp = toArray(jsonlayer.SRS);
-
-          if (isDefined(jsonlayer.CRS)) {
-            gp = toArray(jsonlayer.CRS);
-          }
-
-          layer.projectionProperties = [];
-
-          let tempSRS = [];
-
-          let getgpbbox = (data) => {
-            if (isDefined(data.BoundingBox)) {
-              // Fill in SRS and BBOX on basis of BoundingBox attribute
-              let gpbbox = toArray(data.BoundingBox);
-              for (j = 0; j < gpbbox.length; j++) {
-                let srs;
-                srs = gpbbox[j].attr.SRS;
-
-                if (isDefined(gpbbox[j].attr.CRS)) {
-                  srs = gpbbox[j].attr.CRS;
-                }
-                if (srs) {
-                  if (srs.length > 0) {
-                    srs = decodeURIComponent(srs);
-                  }
-                }
-                let alreadyAdded = false;
-                for (let i = 0; i < layer.projectionProperties.length; i++) {
-                  if (srs === layer.projectionProperties[i].srs) {
-                    alreadyAdded = true;
-                    break;
-                  }
-                }
-
-                if (alreadyAdded === false) {
-                  let geoProperty = new WMJSProjection();
-
-                  geoProperty.srs = srs;
-                  let swapBBOX = false;
-                  if (layer.version === WMSVersion.version130) {
-                    if (geoProperty.srs === 'EPSG:4326' && layer.wms130bboxcompatibilitymode === false) {
-                      swapBBOX = true;
-                    }
-                  }
-                  if (swapBBOX === false) {
-                    geoProperty.bbox.left = parseFloat(gpbbox[j].attr.minx);
-                    geoProperty.bbox.bottom = parseFloat(gpbbox[j].attr.miny);
-                    geoProperty.bbox.right = parseFloat(gpbbox[j].attr.maxx);
-                    geoProperty.bbox.top = parseFloat(gpbbox[j].attr.maxy);
-                  } else {
-                    geoProperty.bbox.left = parseFloat(gpbbox[j].attr.miny);
-                    geoProperty.bbox.bottom = parseFloat(gpbbox[j].attr.minx);
-                    geoProperty.bbox.right = parseFloat(gpbbox[j].attr.maxy);
-                    geoProperty.bbox.top = parseFloat(gpbbox[j].attr.maxx);
-                  }
-
-                  layer.projectionProperties.push(geoProperty);
-                  tempSRS.push(geoProperty.srs);
-                }
-              }
-            }
-            /* for(let j=0;j<layer.projectionProperties.length;j++){
-              let geoProperty = layer.projectionProperties[j];
-              if(geoProperty.srs === "EPSG:4326" || geoProperty.srs === "CRS:84"){
-                if(isDefined(data.EX_GeographicBoundingBox)){
-                  let left   = data.EX_GeographicBoundingBox.westBoundLongitude.value;
-                  let bottom = data.EX_GeographicBoundingBox.southBoundLatitude.value;
-                  let right  = data.EX_GeographicBoundingBox.eastBoundLongitude.value;
-                  let top    = data.EX_GeographicBoundingBox.northBoundLatitude.value;
-                  if(isDefined(left) && isDefined(left) && isDefined(left) && isDefined(left)){
-                    geoProperty.bbox.left =   parseFloat(left);
-                    geoProperty.bbox.bottom = parseFloat(bottom);
-                    geoProperty.bbox.right =  parseFloat(right);
-                    geoProperty.bbox.top =    parseFloat(top);
-                  }
-                }
-              }
-            } */
-          };
-
-          getgpbbox(jsonlayer);
-          getgpbbox(rootLayer);
-
-          // Fill in SRS  on basis of SRS attribute
-          for (j = 0; j < gp.length; j++) {
-            if (tempSRS.indexOf(gp[j].value) === -1) {
-              let geoProperty = new WMJSProjection();
-              error('Warning: BoundingBOX missing for SRS ' + gp[j].value);
-              geoProperty.bbox.left = -180;
-              geoProperty.bbox.bottom = -90;
-              geoProperty.bbox.right = 180;
-              geoProperty.bbox.top = 90;
-              geoProperty.srs = gp[j].value;
-              layer.projectionProperties.push(geoProperty);
-            }
-          }
-          tempSRS = '';
-          /* Check if layer is queryable */
-          layer.queryable = false;
-          try {
-            if (parseInt(jsonlayer.attr.queryable) === 1)layer.queryable = true; else layer.queryable = false;
-          } catch (e) {
-            error('Unable to detect whether this layer is queryable (for layer ' + layer.title + ')');
-          }
-          foundLayer = 1;
-        };// [/FoundLayer]
-
-        // Try to recursively find the name in the getcap doc
-        let JSONLayers = toArray(rootLayer.Layer);
-        let path = '';
-        let objectpath = [];
-
-        function recursivelyFindLayer (JSONLayers, path, _objectpath) {
-          let objectpath = [];
-          for (let i = 0; i < _objectpath.length; i++) {
-            objectpath.push(_objectpath[i]);
-          }
-          objectpath.push(JSONLayers);
-
-          for (let j = 0; j < JSONLayers.length; j++) {
-            if (JSONLayers[j].Layer) {
-              let pathnew = path;
-
-              try {
-                pathnew += JSONLayers[j].Title.value + '/';
-              } catch (e) {
-              }
-
-              recursivelyFindLayer(toArray(JSONLayers[j].Layer), pathnew, objectpath);
-            } else {
-              if (JSONLayers[j].Name) {
-                if (JSONLayers[j].Name.value === layer.name) { foundLayerFunction(JSONLayers[j], path, objectpath); return; }
-              }
-            }
-          }
-        }
-        objectpath.push(rootLayer);
-        recursivelyFindLayer(JSONLayers, path, objectpath);
-
-        if (foundLayer === 0) {
-          // Layer was not found...
-          let message = '';
-          if (layer.name) {
-            message = ("Unable to find layer '" + layer.name + "' in service '" + layer.service + "'");
-          } else {
-            message = ("Unable to find layer '" + layer.title + "' in service '" + layer.service + "'");
-          }
-          layer.title = '--- layer not found in service ---';
-          layer.abstract = I18n.not_available_message.text;
-          fail(layer, message);
-          return layer;
-        } else {
-          /* Layer was found */
-          if (layer.onReady) {
-            layer.onReady(layer);
-          }
-        }
-        layerDoneCallback(layer);
-        return layer;
-      };// [/parseGetCapForLayer]
-      var layer = parseGetCapForLayer(_this, data);
+      _this.__parseGetCapForLayer(_this, data, layerDoneCallback, fail);
     };
 
     let requestfail = (data) => {
@@ -678,7 +685,8 @@ export default class WMJSLayer {
       _xml2jsonrequest = _this.parentMaps && _this.parentMaps.length > 0 ? _this.parentMaps[0].xml2jsonrequest : undefined
     }
     _this.WMJSService = WMJSGetServiceFromStore(this.service, _xml2jsonrequest);
-    _this.WMJSService.getCapabilities(callback, requestfail, forceReload);
+    _this.WMJSService.getCapabilities((data) => {
+      callback(data,_this);}, requestfail, forceReload);
   };
 
   cloneLayer () {
@@ -753,7 +761,7 @@ export default class WMJSLayer {
   setStyle (styleName) {
     debug('WMJSLayer::setStyle: ' + styleName);
 
-    if (this.styles.length === 0) {
+    if (!this.styles || this.styles.length === 0) {
       this.currentStyle = '';
       this.legendGraphic = '';
       debug('Layer has no styles.');

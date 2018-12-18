@@ -84,7 +84,7 @@ class GetFeatureInfoObject {
   */
 export default class WMJSMap {
   constructor (_element, _xml2jsonrequestURL) {
-    this.WebMapJSMapVersion = '3.2.4';
+    this.WebMapJSMapVersion = '3.2.6';
     this.base = './';
     this.noimage = undefined;
     this.showDialog = true;
@@ -283,6 +283,7 @@ export default class WMJSMap {
     this.removeAllLayers = this.removeAllLayers.bind(this);
     this.deleteLayer = this.deleteLayer.bind(this);
     this.moveLayerDown = this.moveLayerDown.bind(this);
+    this.swapLayers = this.swapLayers.bind(this);
     this.moveLayerUp = this.moveLayerUp.bind(this);
     this.addLayer = this.addLayer.bind(this);
     this.getActiveLayer = this.getActiveLayer.bind(this);
@@ -1195,6 +1196,35 @@ export default class WMJSMap {
     }
   };
 
+  swapLayers (layerA, layerB) {
+    // console.log('--- swap layers ---');
+    // for(let j = 0;j < this.layers.length; j++ ) {
+    //   console.log(j + '). Name: ' + this.layers[j].name);
+    // }
+    let layerIndexA = this._getLayerIndex(layerA);
+    let layerIndexB = this._getLayerIndex(layerB);
+    // console.log(layerIndexA, layerIndexB);
+    if (layerIndexA >= 0 && layerIndexB >= 0) {
+      let layerA = this.layers[layerIndexA];
+      let layerB = this.layers[layerIndexB];
+      // console.log(layerA.name, layerB.name);
+      if (layerB && layerA) {
+        this.layers[layerIndexA] = layerB;
+        this.layers[layerIndexB] = layerA;
+      }
+    } else {
+      try {
+        error('moveLayers: layer \'' + layerA.name + '\' not found.');
+      } catch (e) {
+        error('moveLayers: layer invalid.');
+      }
+    }
+    // console.log('---');
+    // for(let j = 0;j < this.layers.length; j++ ) {
+    //   console.log(j + '). Name: ' + this.layers[j].name);
+    // }
+  }
+
   moveLayerUp (layerToMove) {
     let layerIndex = this._getLayerIndex(layerToMove);
     if (layerIndex < this.layers.length - 1) {
@@ -1875,8 +1905,7 @@ export default class WMJSMap {
               request = this.buildWMSGetMapRequest(this.baseLayers[l]);
 
               if (request) {
-                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer: this.baseLayers[l] });
-                this.divBuffer[this.newSwapBuffer].setOpacity(currentLayerIndex, this.baseLayers[l].opacity);
+                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer: this.baseLayers[l] }, this.baseLayers[l].opacity);
                 currentLayerIndex++;
               }
             }
@@ -1890,8 +1919,7 @@ export default class WMJSMap {
           let layerDimensionsObject = this.layers[j].dimensions;// getLayerDimensions(layers[j]);
           request = this.buildWMSGetMapRequest(this.layers[j], layerDimensionsObject);
           if (request) {
-            this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer: this.layers[j] });
-            this.divBuffer[this.newSwapBuffer].setOpacity(currentLayerIndex, this.layers[j].opacity);
+            this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer: this.layers[j] }, this.layers[j].opacity);
             this.layers[j].image = this.divBuffer[this.newSwapBuffer].layers[currentLayerIndex];
             currentLayerIndex++;
           }
@@ -1904,8 +1932,7 @@ export default class WMJSMap {
             if (this.baseLayers[l].keepOnTop === true) {
               request = this.buildWMSGetMapRequest(this.baseLayers[l]);
               if (request) {
-                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer:this.baseLayers[l] });
-                this.divBuffer[this.newSwapBuffer].setOpacity(currentLayerIndex, this.baseLayers[l].opacity);
+                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer:this.baseLayers[l] }, this.baseLayers[l].opacity);
                 currentLayerIndex++;
               }
             }

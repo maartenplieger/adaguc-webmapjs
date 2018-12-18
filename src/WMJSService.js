@@ -224,14 +224,18 @@ export class WMJSService {
 
     if (!this.getcapabilitiesDoc || forceReload === true) {
       this.busy = true;
+      let cf = { callback:succescallback, fail:failcallback };
+      this.functionCallbackList.push(cf);
+
+      /* Fail functions */
       let fail = (jsonData) => {
         this.busy = false;
-        for (let j = 0; j < this.functionCallbackList.length; j++) {
-          this.functionCallbackList[j].fail(jsonData);
-          this.functionCallbackList[j].fail = function () {};
+        let current;
+        while (current = this.functionCallbackList.pop()) {
+          current.fail(jsonData);
         }
-        this.functionCallbackList.length = 0;
       };
+      /* Success functions */
       let succes = (jsonData) => {
         this.busy = false;
         this.getcapabilitiesDoc = jsonData;
@@ -272,18 +276,11 @@ export class WMJSService {
         } catch (e) {
           this.onlineresource = I18n.not_available_message.text;
         }
-
-        for (let j = 0; j < this.functionCallbackList.length; j++) {
-          this.functionCallbackList[j].callback(jsonData);
-          this.functionCallbackList[j].callback = () => {};
+        let current;
+        while (current = this.functionCallbackList.pop()) {
+          current.callback(jsonData);
         }
-        this.functionCallbackList.length = 0;
-        this.functionCallbackList = [];
-        this.busy = false;
       };
-      let cf = { callback:succescallback, fail:failcallback };
-      this.functionCallbackList.push(cf);
-
       WMJSGetCapabilities(this.service, false, succes, fail, xml2jsonrequestURL);
     } else {
       succescallback(this.getcapabilitiesDoc);

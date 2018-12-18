@@ -44,14 +44,11 @@ export default class WMJSCanvasBuffer {
     this.hide = this.hide.bind(this);
     this.display = this.display.bind(this);
     this.finishedLoading = this.finishedLoading.bind(this);
-    this.setPosition = this.setPosition.bind(this);
-    this.setSize = this.setSize.bind(this);
     this.resize = this.resize.bind(this);
     this.load = this.load.bind(this);
     this.setSrc = this.setSrc.bind(this);
     this._getPixelCoordFromGeoCoord = this._getPixelCoordFromGeoCoord.bind(this);
     this.setBBOX = this.setBBOX.bind(this);
-    this.setOpacity = this.setOpacity.bind(this);
     this.getBuffer = this.getBuffer.bind(this);
   }
 
@@ -69,7 +66,7 @@ export default class WMJSCanvasBuffer {
 
   _statDivBufferImageLoaded () {
     for (let j = 0; j < this.layers.length; j++) {
-      if (this.layers[j].isLoaded() === false) {
+      if (this.layers[j].image.isLoaded() === false) {
         return;
       }
     }
@@ -79,7 +76,8 @@ export default class WMJSCanvasBuffer {
   hide () {
     this.hidden = true;
     this.canvas.hide();
-    this.layers = [];
+    this.layers.length = 0;
+    this.layerstodisplay.length = 0;
   };
 
   display (newbbox, loadedbbox) {
@@ -115,12 +113,12 @@ export default class WMJSCanvasBuffer {
 
     let legendPosX = 0;
     for (let j = 0; j < this.layerstodisplay.length; j++) {
-      this.layerstodisplay[j].setSize(this._width, this._height);
-      if (this.layerstodisplay[j].hasError() === false) {
+      this.layerstodisplay[j].image.setSize(this._width, this._height);
+      if (this.layerstodisplay[j].image.hasError() === false) {
         // Draw
-        let op = this.layerstodisplay[j].getOpacity();
+        let op = this.layerstodisplay[j].opacity;
         this._ctx.globalAlpha = op;
-        let el = this.layerstodisplay[j].getElement()[0];
+        let el = this.layerstodisplay[j].image.getElement()[0];
         if (this._type === 'legendbuffer') {
           let legendW = parseInt(el.width) + 4;
           let legendH = parseInt(el.height) + 4;
@@ -179,11 +177,12 @@ export default class WMJSCanvasBuffer {
   finishedLoading () {
     if (this.ready) return;
     this.ready = true;
+    this.layerstodisplay.length = 0;
     for (let j = 0; j < this.layers.length; j++) {
-      this.layerstodisplay[j] = this.layers[j];
-      if (this.layers[j].hasError()) {
+      this.layerstodisplay.push(this.layers[j]);
+      if (this.layers[j].image.hasError()) {
         error('Unable to get image <a target="_blank" href="' +
-          this.layerstodisplay[j].getSrc() + '">' + this.layerstodisplay[j].getSrc() + '</a>', false);
+          this.layerstodisplay[j].image.getSrc() + '">' + this.layerstodisplay[j].image.getSrc() + '</a>', false);
       }
     }
     try {
@@ -193,14 +192,6 @@ export default class WMJSCanvasBuffer {
     } catch (e) {
       error('Exception in Divbuffer::finishedLoading: ' + e);
     }
-  };
-
-  setPosition (x, y) {
-    console.log('setPosition is deprecated');
-  };
-
-  setSize (w, h) {
-    console.log('setSize is deprecated');
   };
 
   resize (w, h) {
@@ -221,7 +212,7 @@ export default class WMJSCanvasBuffer {
       return;
     }
     this.ready = false;
-    this.layerstodisplay = [];
+    this.layerstodisplay.length = 0;
 
     // console.log("WMJSCanvasBuffer:load");
     // this.setPosition(0,0);
@@ -232,7 +223,7 @@ export default class WMJSCanvasBuffer {
     for (let j = 0; j < this.layers.length; j++) {
       this.layers[j].loadThisOne = false;
 
-      if (this.layers[j].isLoaded() === false) {
+      if (this.layers[j].image.isLoaded() === false) {
         this.layers[j].loadThisOne = true;
         this.nrLoading++;
       }
@@ -245,28 +236,30 @@ export default class WMJSCanvasBuffer {
       if (this._type === 'legendbuffer') { debug('GetLegendGraphic:'); }
       for (let j = 0; j < this.layers.length; j++) {
         if (this.layers[j].loadThisOne === true) {
-          debug("<a target='_blank' href='" + this.layers[j].getSrc() + "'>" + this.layers[j].getSrc() + '</a>', false);
+          debug("<a target='_blank' href='" + this.layers[j].image.getSrc() + "'>" + this.layers[j].image.getSrc() + '</a>', false);
         }
       }
 
       for (let j = 0; j < this.layers.length; j++) {
         if (this.layers[j].loadThisOne === true) {
           // console.log('WMJSCanvasBuffer.loading = ' + this.layers[j].getSrc());
-          this.layers[j].load();
+          this.layers[j].image.load();
         }
       }
     }
   };
 
-  setSrc (layerIndex, imageSource, width, height, linkedInfo) {
+  setSrc (layerIndex, imageSource, width, height, linkedInfo, opacity) {
     if (!isDefined(imageSource)) { console.log('undefined'); return; }
     while (layerIndex >= this.layers.length) {
-      this.layers.push(this._defaultImage);
+      this.layers.push({image:this._defaultImage, opacity: opacity, linkedInfo: linkedInfo, loadThisOne: false });
     }
     let image = this._imageStore.getImage(imageSource);
-    image.setZIndex(layerIndex);
-    image.linkedInfo = linkedInfo;
-    this.layers[layerIndex] = image;
+    
+    // image.setZIndex(layerIndex);
+    
+    this.layers[layerIndex].image = image;
+
   };
 
   _getPixelCoordFromGeoCoord (coordinates, b) {
@@ -281,18 +274,6 @@ export default class WMJSCanvasBuffer {
     this._currentnewbbox = newbbox + '';
     if (this.hidden === false) {
       this.display(newbbox, loadedbbox);
-    }
-  };
-
-  setOpacity (layerIndex, opacity) {
-    if (layerIndex >= this.layers.length) {
-      error('setOpacity :invalid id');
-      return;
-    }
-    let op = parseFloat(opacity);
-
-    if (this.layers[layerIndex].getOpacity() !== op) {
-      this.layers[layerIndex].setOpacity(op);
     }
   };
 
