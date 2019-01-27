@@ -314,6 +314,7 @@ export default class WMJSMap {
     this.draw = this.draw.bind(this);
     this._draw = this._draw.bind(this);
     this._drawAndLoad = this._drawAndLoad.bind(this);
+    this._drawReady = this._drawReady.bind(this);
     this._onLayersReadyCallbackFunction = this._onLayersReadyCallbackFunction.bind(this);
     this._onMapReadyCallbackFunction = this._onMapReadyCallbackFunction.bind(this);
     this._onResumeSuspendCallbackFunction = this._onResumeSuspendCallbackFunction.bind(this);
@@ -1753,13 +1754,9 @@ export default class WMJSMap {
 
   _animFrameRedraw () {
     this._draw(this._animationList);
-    this.drawPending = false;
-    if (this.needsRedraw) {
-      this.needsRedraw = false;
-      this.draw(this._animationList);
-    }
   }
   draw (animationList) {
+    // console.log('**************** draw', animationList);
     this._animationList = animationList;
     if (this.isAnimating) {
       if (enableConsoleDebugging)console.log('ANIMATING: Skipping draw:' + animationList);
@@ -1770,7 +1767,8 @@ export default class WMJSMap {
       return;
     }
     this.drawPending = true;
-    window.requestAnimationFrame(this._animFrameRedraw);
+    //window.requestAnimationFrame();
+    this._animFrameRedraw();
   };
   /**
    * API Function called to draw the layers, fires getmap request and shows the layers on the screen
@@ -1782,8 +1780,18 @@ export default class WMJSMap {
     this._drawAndLoad(animationList);
   };
 
+  _drawReady () {
+    this.drawPending = false;
+    this.drawBusy = 0;
+    if (this.needsRedraw) {
+      this.needsRedraw = false;
+      this.draw(this._animationList);
+    }
+  }
+
   _drawAndLoad (animationList) {
     if (this.width < 4 || this.height < 4) {
+      this._drawReady ();
       return;
     }
 
@@ -1814,10 +1822,6 @@ export default class WMJSMap {
           }
         }
       }
-    }
-    if (this.width < 4 || this.height < 4) {
-      console.log('map too small, skipping');
-      return;
     }
     this._pdraw();
   };
@@ -1886,7 +1890,7 @@ export default class WMJSMap {
       if (this.callBack.addToCallback('onresumesuspend', this._onResumeSuspendCallbackFunction) === true) {
         debug('Suspending on onresumesuspend');
       }
-      this.drawBusy = 0;
+      this._drawReady ();
       return;
     }
 
@@ -2013,6 +2017,7 @@ export default class WMJSMap {
         this.callBack.triggerEvent('onmapready', this);
         this.loadingDiv.hide();
         this.loadingDivTimer.stop();
+        this._drawReady ();
       }
     );
   };
