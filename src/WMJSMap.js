@@ -84,7 +84,7 @@ class GetFeatureInfoObject {
   */
 export default class WMJSMap {
   constructor (_element, _xml2jsonrequestURL) {
-    this.WebMapJSMapVersion = '3.2.10';
+    this.WebMapJSMapVersion = '3.2.11';
     this.base = './';
     this.noimage = undefined;
     this.showDialog = true;
@@ -766,34 +766,36 @@ export default class WMJSMap {
         WMJSDrawMarker(ctx, this.divMapPin.x, this.divMapPin.y, '#9090FF', '#000');
       }
 
-      /* Draw legends */
-      let legendPosX = 0;
-      for (let j = 0; j < this.layers.length; j++) {
-        if (this.layers[j].enabled !== false) {
-          let legendUrl = this.getLegendGraphicURLForLayer(this.layers[j]);
-          if (isDefined(legendUrl)) {
+      if (this._displayLegendInMap) {
+        /* Draw legends */
+        let legendPosX = 0;
+        for (let j = 0; j < this.layers.length; j++) {
+          if (this.layers[j].enabled !== false) {
+            let legendUrl = this.getLegendGraphicURLForLayer(this.layers[j]);
+            if (isDefined(legendUrl)) {
 
-            let image = legendImageStore.getImage(legendUrl);
-            if (image.hasError() === false) {
-              if (image.isLoaded() === false && image.isLoading() === false) {
-                image.load();
-              } else {
-                let el = image.getElement()[0];
-                let legendW = parseInt(el.width) + 4;
-                let legendH = parseInt(el.height) + 4;
-                legendPosX += (legendW + 4);
-                let legendX = this.width - legendPosX + 2;
-                let legendY = this.height - (legendH) - 2;
-                ctx.beginPath();
-                ctx.fillStyle = '#FFFFFF';
-                ctx.lineWidth = 0.3;
-                ctx.globalAlpha = 0.5;
-                ctx.strokeStyle = '#000000';
-                ctx.rect(parseInt(legendX) + 0.5, parseInt(legendY) + 0.5, legendW, legendH);
-                ctx.fill();
-                ctx.stroke();
-                ctx.globalAlpha = 1.0;
-                ctx.drawImage(el, legendX, legendY);
+              let image = legendImageStore.getImage(legendUrl);
+              if (image.hasError() === false) {
+                if (image.isLoaded() === false && image.isLoading() === false) {
+                  image.load();
+                } else {
+                  let el = image.getElement()[0];
+                  let legendW = parseInt(el.width) + 4;
+                  let legendH = parseInt(el.height) + 4;
+                  legendPosX += (legendW + 4);
+                  let legendX = this.width - legendPosX + 2;
+                  let legendY = this.height - (legendH) - 2;
+                  ctx.beginPath();
+                  ctx.fillStyle = '#FFFFFF';
+                  ctx.lineWidth = 0.3;
+                  ctx.globalAlpha = 0.5;
+                  ctx.strokeStyle = '#000000';
+                  ctx.rect(parseInt(legendX) + 0.5, parseInt(legendY) + 0.5, legendW, legendH);
+                  ctx.fill();
+                  ctx.stroke();
+                  ctx.globalAlpha = 1.0;
+                  ctx.drawImage(el, legendX, legendY);
+                }
               }
             }
           }
@@ -1757,7 +1759,11 @@ export default class WMJSMap {
   }
   draw (animationList) {
     // console.log('**************** draw', animationList);
-    this._animationList = animationList;
+    if (typeof (animationList) === 'object') {
+      if (animationList.length > 0) {
+        this._animationList = animationList;
+      }    
+    }
     if (this.isAnimating) {
       if (enableConsoleDebugging)console.log('ANIMATING: Skipping draw:' + animationList);
       return;
