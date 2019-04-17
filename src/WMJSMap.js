@@ -84,7 +84,7 @@ class GetFeatureInfoObject {
   */
 export default class WMJSMap {
   constructor (_element, _xml2jsonrequestURL) {
-    this.WebMapJSMapVersion = '3.2.11';
+    this.WebMapJSMapVersion = '3.2.13';
     this.base = './';
     this.noimage = undefined;
     this.showDialog = true;
@@ -581,12 +581,16 @@ export default class WMJSMap {
       }
     }catch(e){
     }
-
-    if (!this.mainElement.style.height) {
-      this.mainElement.style.height = '1px';
+    if (!this.mainElement) {
+      return;
     }
-    if (!this.mainElement.style.width) {
-      this.mainElement.style.width = '1px';
+    if (this.mainElement.style) {
+      if (!this.mainElement.style.height) {
+        this.mainElement.style.height = '1px';
+      }
+      if (!this.mainElement.style.width) {
+        this.mainElement.style.width = '1px';
+      }
     }
     this.baseDivId = this.makeComponentId('baseDiv');
     $('<div/>', {
@@ -1397,6 +1401,7 @@ export default class WMJSMap {
       this.setProjection(projinfo.srs, projinfo.bbox);
     }
     this.baseDiv.css({ width:this.width, height:this.height });
+    if (!this.mainElement.style) return;
     this.mainElement.style.width = this.width + 'px';
     this.mainElement.style.height = this.height + 'px';
     this.setBBOX(this.resizeBBOX);
@@ -1760,6 +1765,7 @@ export default class WMJSMap {
   };
 
   display () {
+    if (!this.divBuffer[this.currentSwapBuffer]) return;
     this.divBuffer[this.currentSwapBuffer].display(this.updateBBOX, this.loadedBBOX);
     if (enableConsoleDebugging) console.log('drawnBBOX.setBBOX(bbox)');
     this.drawnBBOX.setBBOX(this.bbox);
