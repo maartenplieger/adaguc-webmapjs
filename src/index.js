@@ -4,11 +4,14 @@ import WMJSLayer from './WMJSLayer.js'
 import WMJSTimer from './WMJSTimer.js';
 import WMJSGetServiceFromStore from './WMJSGetServiceFromStore.js';
 import { WMJSDateOutSideRange, WMJSDateTooEarlyString, WMJSDateTooLateString, WMJSEmptyLayerName, WMJSEmptyLayerTitle } from './WMJSConstants.js';
-import { parseISO8601DateToDate } from  './WMJSTime.js';
+import { parseISO8601DateToDate, DateInterval, parseISO8601IntervalToDateInterval, ParseISOTimeRangeDuration } from  './WMJSTime.js';
 import WMJSBBOX from './WMJSBBOX.js';
 import I18n from  './I18n/lang.en.js';
 
 export { WMJSMap, 
+  DateInterval,
+  parseISO8601IntervalToDateInterval, 
+  ParseISOTimeRangeDuration,
   isDefined, 
   WMJSLayer, 
   getUrlVars, 

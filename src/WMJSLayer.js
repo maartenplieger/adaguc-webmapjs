@@ -87,21 +87,16 @@ export default class WMJSLayer {
       this.getmapURL = options.service;
       this.getfeatureinfoURL = options.service;
       this.getlegendgraphicURL = options.service;
+      if (options.active === true)this.active = true; else this.active = false;
       // this.name=options.layer;
       this.name = options.name;
       if (options.getgraphinfoURL) this.getgraphinfoURL = options.getgraphinfoURL;
-
-      if (options.style) {
-        this.currentStyle = options.style;
-      }
-      if (options.sldURL) {
-        this.sldURL = options.sldURL;
-      }
+      if (options.style) { this.currentStyle = options.style;  }
+      if (options.currentStyle) { this.currentStyle = options.currentStyle; }
+      if (options.sldURL) { this.sldURL = options.sldURL;}
+      if (options.id) { this.id = options.id; }
       if (options.format) this.format = options.format; else this.format = 'image/png';
-      if (options.opacity) {
-        // alert(options.opacity);
-        this.opacity = options.opacity;
-      }
+      if (options.opacity) { this.opacity = options.opacity; }
       if (options.title) this.title = options.title;
       this.abstract = I18n.not_available_message.text;
 
@@ -112,7 +107,12 @@ export default class WMJSLayer {
       if (options.transparent === false) { this.transparent = false; }
       if (isDefined(options.onReady)) { this.onReady = options.onReady; this.parseLayer(undefined, undefined, 'WMJSLayer::configOptions'); }
       if (isDefined(options.type)) { this.type = options.type; }
-      if (options.parentMaps) { console.log(options.parentMaps); this.parentMaps = options.parentMaps; }
+      if (options.parentMaps) { this.parentMaps = options.parentMaps; }
+      if (options.dimensions && options.dimensions.length) {
+        for (let d = 0; d < options.dimensions.length; d++) {
+          this.dimensions.push(new WMJSDimension(options.dimensions[d]));
+        }
+     }
     }
   }
   // Extensions compatible with ncWMS WMS extensions on http://www.resc.rdg.ac.uk/trac/ncWMS/wiki/WmsExtensions
@@ -163,7 +163,7 @@ export default class WMJSLayer {
   setOpacity (opacityValue) {
     this.opacity = parseFloat(opacityValue);
     if (this.parentMaps.length === 0) {
-      console.error('Layer has no parent maps');
+      console.warn('Layer has no parent maps');
     }
     for (let j = 0; j < this.parentMaps.length; j++) {
       this.parentMaps[j].redrawBuffer();
@@ -272,7 +272,12 @@ export default class WMJSLayer {
     }
 
     let extents = toArray(jsonlayer.Extent);
-    layer.dimensions = [];
+    // layer.dimensions = [];
+    let layerDimsToRemove = [];
+    /* Remember which dims we currently have, later on we see which ones are still present and which ones need to be removed */
+    for (let i = 0; i < this.dimensions.length; i++) {
+      layerDimsToRemove.push(this.dimensions[i].name);
+    }
     let hasRefTimeDimension = false;
 
     for (let j = 0; j < dimensions.length; j++) {
@@ -341,12 +346,27 @@ export default class WMJSLayer {
 
       dim.parentLayer = layer;
       if (isDefined(dim.values)) {
-        layer.dimensions.push(dim);
+        const i = layer.dimensions.findIndex(d => d.name === dim.name);
+        /* Found dim, remove it from the list with dims to remove */
+        const k = layerDimsToRemove.findIndex(d => d === dim.name);
+        if (k !== -1) layerDimsToRemove.splice(k, 1);
+        if (i === -1) {
+          layer.dimensions.push(dim);
+        } else {
+          let currentValue = layer.dimensions[i].currentValue;
+          layer.dimensions[i] = dim;
+          layer.dimensions[i].currentValue = currentValue;
+        }     
       } else {
         error('Skipping dimension ' + dim.name);
       }
     }
 
+    /* Check which dims are still present and should be removed */
+    for (let d = 0; d < layerDimsToRemove.length; d++) {
+      let i = layer.dimensions.findIndex(dim => dim.name === layerDimsToRemove[d]);
+      if (i !== -1) layer.dimensions.splice(i, 1);
+    }    
     if (hasRefTimeDimension) {
       let refTimeDimension = layer.getDimension('reference_time');
       this.handleReferenceTime('reference_time', refTimeDimension.getValue());

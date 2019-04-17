@@ -50,7 +50,7 @@ import { WMJSDateOutSideRange, WMJSDateTooEarlyString, WMJSDateTooLateString, WM
 // var Hammer = require(['hammerjs']);
 
 let enableConsoleDebugging = false;
-let enableConsoleErrors = false;
+let enableConsoleErrors = true;
 /**
  * Set base URL of several sources used wihtin webmapjs
  */
@@ -65,7 +65,7 @@ let error = (message) => {
 /* Global vars */
 let WebMapJSMapNo = 0;
 /* Global image stores */
-let maxAnimationSteps = 60;
+let maxAnimationSteps = 72;
 var legendImageStore = new WMJSImageStore(maxAnimationSteps * 6, 'wmjslegendbuffer');
 var getMapImageStore = new WMJSImageStore(maxAnimationSteps * 6, 'wmjsimagebuffer');
 var bgMapImageStore = new WMJSImageStore(360, 'wmjsimagebuffer', { randomizer:false });
@@ -1077,7 +1077,6 @@ export default class WMJSMap {
   };
 
   setLayer (layer, getcapdoc) {
-    console.log('setlayer');
     return this.addLayer(layer, getcapdoc, layer);
   };
 
@@ -1088,7 +1087,11 @@ export default class WMJSMap {
   };
 
   setActiveLayer (layer) {
+    for (let j = 0;j < this.layers.length; j++) {
+      this.layers[j].active = false;
+    }
     this.activeLayer = layer;
+    this.activeLayer.active = true;
     this.loadLegendInline();
     this.callBack.triggerEvent('onchangeactivelayer');
   };
@@ -1150,8 +1153,8 @@ export default class WMJSMap {
     for (let i = 0; i < this.layers.length; ++i) {
       this.layers[i].setAutoUpdate(false);
     }
-    this.layers = [];
-    this.mapdimensions = [];
+    this.layers.length = 0;
+    this.mapdimensions.length = 0;
     this.callBack.triggerEvent('onlayeradd');
   };
 
@@ -1247,25 +1250,30 @@ export default class WMJSMap {
   };
 
   /**
-   * @param _layer
-   * @param getcapdoc
-   * @param layerToReplace
+   * @param layer of type WMJSLayer
    */
   addLayer (layer) {
     if (!isDefined(layer)) {
+      console.warn('addLayer: undefined layer');
       return;
     }
+
+    if (!layer.constructor || layer.constructor.name !== 'WMJSLayer') {
+      console.warn('addLayer: layer is not a WMJSLayer object');
+      return;
+    }
+
     if (!layer.parentMaps.includes(this)) {
       layer.parentMaps.push(this);
     }
     this.layers.push(layer);
-    let done = (layer) => {
-      for (let j = 0; j < layer.dimensions.length; j++) {
-        let mapDim = this.getDimension(layer.dimensions[j].name);
+    let done = (layerCallback) => {
+      for (let j = 0; j < layerCallback.dimensions.length; j++) {
+        let mapDim = this.getDimension(layerCallback.dimensions[j].name);
         if (isDefined(mapDim)) {
           if (isDefined(mapDim.currentValue)) {
-            if (layer.dimensions[j].linked === true) {
-              layer.dimensions[j].setClosestValue(mapDim.currentValue);
+            if (layerCallback.dimensions[j].linked === true) {
+              layerCallback.dimensions[j].setClosestValue(mapDim.currentValue);
             }
           }
         }
@@ -1676,10 +1684,12 @@ export default class WMJSMap {
     if (this.layers.length === 0) return;
     let layer = this.getActiveLayer();
     if (!layer) {
+      console.warn('drawLastTimes: No active layers');
       return;
     }
     let timeDimension = layer.getDimension('time');
     if (!timeDimension) {
+      console.warn('drawLastTimes: No time dimension');
       return;
     }
     let lastIndex = timeDimension.size() - 1;
@@ -1691,6 +1701,7 @@ export default class WMJSMap {
       if (!lastTime || lastTime === WMJSDateTooEarlyString || begin.isAfter(moment.utc(lastTime))) break;
       drawDates.unshift({ name: 'time', value: lastTime });
     }
+    this.stopAnimating();
     this.draw(drawDates);
   };
   /* Animate between start and end dates with the smallest available resolution */
@@ -1698,7 +1709,7 @@ export default class WMJSMap {
     if (this.layers.length === 0) {
       return;
     }
-    let currentTime = start.format('YYYY-MM-DDTHH:mm:ss');
+    let currentTime = start.format('YYYY-MM-DDTHH:mm:ss[Z]');
     let drawDates = [];
     let iter = 0;
     // Fetch all dates within the time interval with a dynamic frequency
@@ -1808,9 +1819,8 @@ export default class WMJSMap {
         if (typeof (animationList) === 'object') {
           if (animationList.length > 0) {
             if (animationList.length > maxAnimationSteps) {
-              error('Too many animations given, max is ' + maxAnimationSteps);
-              this.draw('self');
-              return;
+              error('Too many animations given, max is ' + maxAnimationSteps + ' animating last steps only');
+              animationList = animationList.splice(-maxAnimationSteps);
             }
             this.isAnimating = true;
             this.callBack.triggerEvent('onstartanimation', this);
@@ -2506,7 +2516,6 @@ export default class WMJSMap {
           this.featureInfoRequestReady('Layer is not queryable.', myLayer);
         } else {
           try {
-            console.log('makehttp');
             MakeHTTPRequest(myLayer.getFeatureInfoUrl, this.featureInfoRequestReady, (data, myLayer) => {
               this.featureInfoRequestReady(data, myLayer); error(data);
             }, myLayer, false, this.requestProxy);

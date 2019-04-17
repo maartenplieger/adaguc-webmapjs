@@ -171,6 +171,7 @@ export default class WMJSAnimate {
 
   stopAnimating () {
     if (this._map.isAnimating === false) return;
+    this._map._animationList = undefined;
     this._divAnimationInfo.style.display = 'none';
     this._map.isAnimating = false;
     this._map.animateBusy = false;
