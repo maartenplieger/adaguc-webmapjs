@@ -155,8 +155,8 @@ export default class WMJSMap {
     this.isMapHeaderEnabled = false;
     this.showScaleBarInMap = true;
     this.mouseHoverAnimationBox = false;
-
-    this.loadingDiv = $('<div class="WMJSDivBuffer-loading"/>', {});
+    this.callBack = new WMJSListener();
+    
     this.initialized = 0;
     this.newSwapBuffer = 0;
     this.currentSwapBuffer = 1;
@@ -174,7 +174,7 @@ export default class WMJSMap {
     this.WMJSProjection_tempundo = new Array(this.MaxUndos);
     for (let j = 0; j < this.MaxUndos; j++) { this.WMJSProjection_undo[j] = new WMJSProjection(); this.WMJSProjection_tempundo[j] = new WMJSProjection(); }
     this.inlineGetFeatureInfo = true;
-    this.callBack = new WMJSListener();
+    
     this.setBaseURL('./');
     /* Contains the event values for when the mouse was pressed down (used for checking the shiftKey); */
     this.gfiDialogList = [];
@@ -421,6 +421,8 @@ export default class WMJSMap {
     this.showBoundingBox = this.showBoundingBox.bind(this);
     this.hideBoundingBox = this.hideBoundingBox.bind(this);
     this.clearImageStore = this.clearImageStore.bind(this);
+    if (!$) { console.warn('WMJSMap: jquery is not defined, assuming unit test is running'); return; }
+    this.loadingDiv = $('<div class="WMJSDivBuffer-loading"/>', {});
     this.init();
   };
 

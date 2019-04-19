@@ -19,6 +19,7 @@ let loadGetCapabilitiesViaProxy = (url, succes, fail, xml2jsonrequestURL) => {
   debug("<a target='_blank' href='" + url + "'>" + url + '</a>', false);
   getcapreq += URLEncode(url);
   /* Error message in case the request goes wrong */
+  if (!$) { console.warn('WMJSService: jquery is not defined, assuming unit test is running'); return; }
   try {
     $.ajax({
       url: getcapreq,

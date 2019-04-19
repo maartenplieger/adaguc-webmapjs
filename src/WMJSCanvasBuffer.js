@@ -4,6 +4,7 @@ import { isDefined } from './WMJSTools.js';
 import { $ } from './WMJSExternalDependencies.js';
 export default class WMJSCanvasBuffer {
   constructor (webmapJSCallback, _type, _imageStore, w, h) {
+    if (!$) { console.warn('WMJSCanvasBuffer: jquery is not defined, assuming unit test is running'); return; }
     this.canvas = $('<canvas/>', { 'class':'WMJSCanvasBuffer' }).width(w).height(h);
     this._ctx = this.canvas[0].getContext('2d');
     this._ctx.canvas.width = w;
