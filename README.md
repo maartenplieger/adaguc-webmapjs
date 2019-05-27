@@ -4,3 +4,9 @@ This is an OGC WMS client library, capable of parsing a service getcapabilities 
 ```
 npm install && npm run build
 ```
+
+To create a new package:
+```
+npm install
+npm run build
+```
