@@ -54,7 +54,7 @@ export default class WMJSTileRenderer {
     let levelF = Math.log((Math.abs(originShiftX2 - originShiftX)) / ((bboxw / screenWidth) * tileSize)) / Math.log(2);
     let level = parseInt(levelF + 0.5);
     let getAttribution = (textileLayer) => {
-      if (!textileLayer || !textileLayer.title || !srs || !tileLayer[srs] || !tileLayer[srs].copyRight) return null;
+      if (!textileLayer || !srs || !tileLayer[srs] || !tileLayer[srs].copyRight) return null;
       return tileLayer[srs].copyRight;
     };
     let drawBGTiles = (level) => {
