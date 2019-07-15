@@ -2605,6 +2605,7 @@ export default class WMJSMap {
     let geopos = this.getGeoCoordFromPixelCoord({ x:this.divMapPin.exactX, y:this.divMapPin.exactY }, _bbox);
     this.divMapPin.geoPosX = geopos.x;
     this.divMapPin.geoPosY = geopos.y;
+    this.draw();
   };
 
   isMapPinVisible () {
