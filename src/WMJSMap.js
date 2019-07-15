@@ -1319,7 +1319,6 @@ export default class WMJSMap {
     *_srs also accepts a projectionProperty object
     */
   setProjection (_srs, _bbox) {
-    this.hideMapPin();
     if (!_srs)_srs = 'EPSG:4326';
     if (typeof (_srs) === 'object') {
       _bbox = _srs.bbox;
@@ -2582,7 +2581,6 @@ export default class WMJSMap {
     debug('positionMapPinByLatLon at ' + coord.x + ',' + coord.y);
     let newpos = this.getPixelCoordFromLatLong(coord);
     this.setMapPin(newpos.x, newpos.y);
-    this.showMapPin();
   };
 
   repositionMapPin (_bbox) {
@@ -2735,13 +2733,11 @@ export default class WMJSMap {
     if (this.mapMode === 'info') {
       debug('GetFeatureInfo');
       this.setMapPin(this.mouseDownX, this.mouseDownY);
-      this.showMapPin();
 
       this.callBack.triggerEvent('beforegetfeatureinfo', { map:this, x:this.mouseDownX, y:this.mouseDownY });
       this.getFeatureInfo(this.mouseDownX, this.mouseDownY);
     } else if (this.mapMode === 'point') {
       this.setMapPin(this.mouseDownX, this.mouseDownY);
-      this.showMapPin();
       this.getPointInfo(this.mouseDownX, this.mouseDownY);
     }
   };
@@ -2958,12 +2954,10 @@ export default class WMJSMap {
 
             this.addListener('ongetfeatureinfoready', ongetfeatureinfoready, true);
             this.setMapPin(this.mouseDownX, this.mouseDownY);
-            this.showMapPin();
             this.callBack.triggerEvent('beforegetfeatureinfo');
             this.getFeatureInfo(this.mouseDownX, this.mouseDownY);
           } else {
             this.setMapPin(this.mouseDownX, this.mouseDownY);
-            this.showMapPin();
           }
         }
       }

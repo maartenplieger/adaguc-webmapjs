@@ -1,6 +1,6 @@
 {
   "name": "adaguc-webmapjs",
-  "version": "3.3.6",
+  "version": "3.3.7",
   "description": "Interactive maps library, capable of parsing a OGC WMS getcapabilities and display geographical layers",
   "main": "./dist/adaguc-webmapjs.js",
   "scripts": {
@@ -28,13 +28,13 @@
   },
   "homepage": "https://github.com/maartenplieger/adaguc-webmapjs#readme",
   "peerDependencies": {
-    "jquery-ui-dist": "^1.12.1"
+    "jquery-ui-dist": "^1.12.1",
+    "proj4": "^2.5.0"
   },
   "dependencies": {
     "jquery": "^3.4.1",
     "jshint": "^2.10.2",
-    "moment": "^2.24.0",
-    "proj4": "^2.5.0"
+    "moment": "^2.24.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.1.2",
