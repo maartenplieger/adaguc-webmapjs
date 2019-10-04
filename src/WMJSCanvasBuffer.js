@@ -182,8 +182,7 @@ export default class WMJSCanvasBuffer {
     for (let j = 0; j < this.layers.length; j++) {
       this.layerstodisplay.push(this.layers[j]);
       if (this.layers[j].image.hasError()) {
-        error('Unable to get image <a target="_blank" href="' +
-          this.layerstodisplay[j].image.getSrc() + '">' + this.layerstodisplay[j].image.getSrc() + '</a>', false);
+        error('image error: ' + this.layerstodisplay[j].image.getSrc(), false);
       }
     }
     try {

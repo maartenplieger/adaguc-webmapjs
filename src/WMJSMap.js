@@ -65,6 +65,7 @@ let error = (message) => {
 
 /* Global vars */
 let WebMapJSMapNo = 0;
+let WebMapJSMapInstanceIds = [];
 /* Global image stores */
 let maxAnimationSteps = 72;
 var legendImageStore = new WMJSImageStore(maxAnimationSteps * 6, 'wmjslegendbuffer');
@@ -128,6 +129,8 @@ export default class WMJSMap {
     this.updateSRS = '';
 
     this.divBuffer = [];
+
+    this.isDestroyed = false;
 
     this.mapHeader = {
       height:0,
@@ -457,8 +460,17 @@ export default class WMJSMap {
    * @return the unique id
    */
   makeComponentId (id) {
+    let availableId = 'WebMapJSMapNo_' + WebMapJSMapNo;
     if (!this.mainElement.id) {
-      this.mainElement.id = 'WebMapJSMapNo_' + WebMapJSMapNo;
+      for (const testDestroyed in WebMapJSMapInstanceIds) {
+        if (WebMapJSMapInstanceIds[testDestroyed] === false) {
+          availableId = testDestroyed;
+          this.hasGeneratedId = true;
+          break;
+        }
+      }
+      this.mainElement.id = availableId;
+      WebMapJSMapInstanceIds[this.mainElement.id] = true;
     }
     if (this.hasGeneratedId === false) {
       this.hasGeneratedId = true;
@@ -710,14 +722,14 @@ export default class WMJSMap {
     // IMAGE buffers
     for (let j = 0; j < 2; j++) {
       let d = new WMJSCanvasBuffer(this.callBack, 'imagebuffer', getMapImageStore, this.getWidth(), this.getHeight());
-      getMapImageStore.addLoadEventCallback(d.imageLoadComplete);
+      getMapImageStore.addLoadEventCallback(d.imageLoadComplete, this.mainElement.id, 'getMapImageStore');
       this.baseDiv.append(d.getBuffer());
       this.divBuffer.push(d);
     }
 
     legendImageStore.addLoadEventCallback(() => {
       this.draw('legendImageStore loaded');
-    });
+    }, this.mainElement.id, 'legendImageStore');
 
     this.callBack.addToCallback('display', this.display, true);
     this.callBack.addToCallback('draw', () => {
@@ -727,7 +739,7 @@ export default class WMJSMap {
 
     bgMapImageStore.addLoadEventCallback(() => {
       this.draw('bgMapImageStore loaded');
-    });
+    }, this.mainElement.id, 'bgMapImageStore');
     let adagucBeforeDraw = (ctx) => {
       if (this.baseLayers) {
         for (let l = 0; l < this.baseLayers.length; l++) {
@@ -1794,6 +1806,10 @@ export default class WMJSMap {
   }
   draw (animationList) {
     // console.log('**************** draw', animationList);
+    if (this.isDestroyed) {
+      console.log('start draw destroyed map: ' + this.mainElement.id, animationList);
+      return;
+    }
     if (typeof (animationList) === 'object') {
       if (animationList.length > 0) {
         this._animationList = animationList;
@@ -2029,6 +2045,7 @@ export default class WMJSMap {
     this.loadingBBOX.setBBOX(this.bbox);
 
     if (!this.divBuffer[current]) return;
+    // console.log('Start loading ' + this.mainElement.id);
     this.divBuffer[current].load(
       () => {
         if (enableConsoleDebugging)console.log('flipBuffers loadcomplete');
@@ -2278,6 +2295,7 @@ export default class WMJSMap {
   };
 
   destroy () {
+    // console.log('destroying ' + this.mainElement.id);
     this.stopAnimating();
     for (let i = this.layers.length - 1; i >= 0; i--) {
       this.layers[i].setAutoUpdate(false);
@@ -2285,6 +2303,12 @@ export default class WMJSMap {
     this.detachEvents();
 
     this.callBack.destroy();
+
+    legendImageStore.removeEventCallback(this.mainElement.id);
+    getMapImageStore.removeEventCallback(this.mainElement.id);
+    bgMapImageStore.removeEventCallback(this.mainElement.id);
+    WebMapJSMapInstanceIds[this.mainElement.id] = false;
+    this.isDestroyed = true;
   };
 
   detachEvents () {
@@ -2308,12 +2332,13 @@ export default class WMJSMap {
       // mc.add(new Hammer.Pinch());
       // mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
       // mc.add(new Hammer.Swipe()).recognizeWith(mc.get('pan'));
-      mc.on('panstart', (ev) => { ev.preventDefault(); this.mouseDown(ev.center.x, ev.center.y, ev); });
-      mc.on('panmove', (ev) => { ev.preventDefault(); this.mouseMove(ev.center.x, ev.center.y, ev); });
-      mc.on('panend', (ev) => { ev.preventDefault(); this.mouseUp(ev.center.x, ev.center.y, ev); });
-      mc.on('pinchstart', (ev) => { ev.preventDefault(); this.pinchStart(ev.center.x, ev.center.y, ev); });
-      mc.on('pinchmove', (ev) => { ev.preventDefault(); this.pinchMove(ev.center.x, ev.center.y, ev); });
-      mc.on('pinchend', (ev) => { ev.preventDefault(); this.pinchEnd(ev.center.x, ev.center.y, ev); });
+
+      // mc.on('panstart', (ev) => { ev.preventDefault(); this.mouseDown(ev.center.x, ev.center.y, ev); });
+      // mc.on('panmove', (ev) => { ev.preventDefault(); this.mouseMove(ev.center.x, ev.center.y, ev); });
+      // mc.on('panend', (ev) => { ev.preventDefault(); this.mouseUp(ev.center.x, ev.center.y, ev); });
+      // mc.on('pinchstart', (ev) => { ev.preventDefault(); this.pinchStart(ev.center.x, ev.center.y, ev); });
+      // mc.on('pinchmove', (ev) => { ev.preventDefault(); this.pinchMove(ev.center.x, ev.center.y, ev); });
+      // mc.on('pinchend', (ev) => { ev.preventDefault(); this.pinchEnd(ev.center.x, ev.center.y, ev); });
     }
 
     this.setMapModePan();

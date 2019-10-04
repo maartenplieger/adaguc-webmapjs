@@ -21,7 +21,7 @@ export default class WMJSImageStore {
 
   imageLoadEventCallback (_img, hasError) {
     for (let j = 0; j < this._loadEventCallbackList.length; j++) {
-      this._loadEventCallbackList[j](_img);
+      this._loadEventCallbackList[j].callback(_img);
     }
   }
 
@@ -66,9 +66,29 @@ export default class WMJSImageStore {
     }
   }
 
-  addLoadEventCallback (callback) {
-    this._loadEventCallbackList.push(callback);
+  addLoadEventCallback (callback, id) {
+    if (!id) {
+      console.error('addLoadEventCallback: id not provided');
+      return;
+    }
+    if (!callback) {
+      console.error('addLoadEventCallback: callback not provided');
+      return;
+    }
+    this._loadEventCallbackList.push({
+      id: id,
+      callback: callback
+    });
   };
+
+  removeEventCallback (id) {
+    for (let j = 0; j < this._loadEventCallbackList.length; j++) {
+      if (this._loadEventCallbackList[j].id === id) {
+        console.log('Removing events for map ' + id);
+        this._loadEventCallbackList.splice(j, 1);
+      }
+    }
+  }
 
   getNumImagesLoading () {
     let numLoading = 0;
