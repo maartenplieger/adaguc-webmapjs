@@ -43,7 +43,7 @@ export default class WMJSLayer {
     this.getCapabilitiesDoc = undefined;
     this.serviceTitle = 'not defined';
     this.parentMaps = [];
-    this.sldURL;
+    this.sldURL = null;
   }
 
   constructor (options) {
@@ -81,6 +81,7 @@ export default class WMJSLayer {
     this.init();
     this._options = options;
     this.sldURL = null;
+    this.headers = [];
     if (options) {
       // alert("WMJSLAYER:"+options.service);
       this.service = options.service;
@@ -112,6 +113,9 @@ export default class WMJSLayer {
         for (let d = 0; d < options.dimensions.length; d++) {
           this.dimensions.push(new WMJSDimension(options.dimensions[d]));
         }
+      }
+      if (options.headers) {
+        this.headers = options.headers;
       }
     }
   }
@@ -705,9 +709,16 @@ export default class WMJSLayer {
       _xml2jsonrequest = _this.parentMaps && _this.parentMaps.length > 0 ? _this.parentMaps[0].xml2jsonrequest : undefined;
     }
     _this.WMJSService = WMJSGetServiceFromStore(this.service, _xml2jsonrequest);
+
+    const options = {};
+    if (this.headers && this.headers.length > 0) {
+      options.headers = {};
+      options.headers = this.headers;
+    }
+
     _this.WMJSService.getCapabilities((data) => {
       callback(data, _this);
-    }, requestfail, forceReload);
+    }, requestfail, forceReload, xml2jsonrequest, options);
   };
 
   cloneLayer () {

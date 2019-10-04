@@ -42,7 +42,7 @@ export default class WMJSImage {
     this.setSize = this.setSize.bind(this);
     this.setZIndex = this.setZIndex.bind(this);
     this.getElement = this.getElement.bind(this);
-
+    this._getImageWithHeaders = this._getImageWithHeaders.bind(this);
     this.init();
     this.srcToLoad = src;
     this._type = __type;
@@ -57,6 +57,7 @@ export default class WMJSImage {
     });
     this.el.onselectstart = () => { return false; };
     this.el.ondrag = () => { return false; };
+    this.headers = [];
   }
   init () {
     this._srcLoaded = 'undefined image';
@@ -85,12 +86,14 @@ export default class WMJSImage {
   /**
    * Set source of image, does not load yet.
    */
-  setSource (src) {
+  setSource (src, options) {
+    // console.log('image::setSource', options);
     if (this._isLoading) {
       console.error('-------------------------> Source set while still loading!!! ');
       return;
     }
     this.srcToLoad = src;
+    if (options && options.headers) this.headers = options.headers;
     if (this._srcLoaded === this.srcToLoad) {
       this._isLoaded = true;
       return;
@@ -123,6 +126,35 @@ export default class WMJSImage {
   load () {
     this._stopLoading = false;
     this._load();
+  }
+
+  _getImageWithHeaders (url, headers) {
+    var fetchHeaders = new Headers();
+    if (headers && headers.length > 0) {
+      for (let j = 0; j < headers.length; j++) {
+        fetchHeaders.append(headers[j].name, headers[j].value);
+      }
+    }
+    var options = {
+      method: 'GET',
+      headers: fetchHeaders,
+      mode: 'cors',
+      cache: 'default'
+    };
+    var request = new Request(url);
+    const arrayBufferToBase64 = (buffer) => {
+      var binary = '';
+      var bytes = [].slice.call(new Uint8Array(buffer));
+      bytes.forEach((b) => { binary += String.fromCharCode(b); });
+      return window.btoa(binary);
+    };
+    fetch(request, options).then((response) => {
+      response.arrayBuffer().then((buffer) => {
+        var base64Flag = 'data:image/png;base64,';
+        var imageStr = arrayBufferToBase64(buffer);
+        this.getElement()[0].src = base64Flag + imageStr;
+      });
+    });
   }
 
   _load () {
@@ -173,12 +205,19 @@ export default class WMJSImage {
     numImagesLoading++;
     // console.log("WMJSImage:load "+this.srcToLoad);
 
-    if (this.randomize) {
-      this.getElement()[0].src = this.srcToLoad + '&' + Math.random();
-      // this.el.attr('src', this.srcToLoad + '&' + Math.random());
+    if (this.headers && this.headers.length > 0) {
+      /* Get an image which needs headers */
+      this._getImageWithHeaders(this.srcToLoad, this.headers);
     } else {
-      this.getElement()[0].src = this.srcToLoad;
-      // this.el.attr('src', this.srcToLoad);
+      /* Do a standard img.src url request */
+
+      if (this.randomize) {
+        this.getElement()[0].src = this.srcToLoad + '&' + Math.random();
+        // this.el.attr('src', this.srcToLoad + '&' + Math.random());
+      } else {
+        this.getElement()[0].src = this.srcToLoad;
+        // this.el.attr('src', this.srcToLoad);
+      }
     }
   };
 

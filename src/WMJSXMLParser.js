@@ -1,8 +1,15 @@
-const WMJSXMLParser = (url) => {
+const WMJSXMLParser = (url, headers) => {
   return new Promise((resolve, reject) => {
+    var fetchHeaders = new Headers();
+    if (headers && headers.length > 0) {
+      for (let j = 0; j < headers.length; j++) {
+        fetchHeaders.append(headers[j].name, headers[j].value);
+      }
+    }
     fetch(url, {
       method: 'GET',
-      mode: 'cors'
+      mode: 'cors',
+      headers: fetchHeaders
     }).then((response) => {
       let contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/xml')) {

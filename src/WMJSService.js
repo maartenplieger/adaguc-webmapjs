@@ -40,8 +40,10 @@ let loadGetCapabilitiesViaProxy = (url, succes, fail, xml2jsonrequestURL) => {
 /**
   * Global getcapabilities function
   */
-export const WMJSGetCapabilities = (service, forceReload, succes, fail, xml2jsonrequestURL = this.xml2jsonrequestURL) => {
+export const WMJSGetCapabilities = (service, forceReload, succes, fail, xml2jsonrequestURL = this.xml2jsonrequestURL, options) => {
   /* Make the regetCapabilitiesJSONquest */
+  let headers = {};
+  if (options && options.headers) headers = options.headers;
   if (!isDefined(service)) {
     fail(I18n.no_service_defined.text);
     return;
@@ -74,7 +76,7 @@ export const WMJSGetCapabilities = (service, forceReload, succes, fail, xml2json
 
   let _xml2jsonrequestURL = xml2jsonrequestURL;
 
-  WMJSXMLParser(url).then((data) => {
+  WMJSXMLParser(url, headers).then((data) => {
     try {
       succes(data);
     } catch (e) {
@@ -214,7 +216,7 @@ export class WMJSService {
     * @param succescallback Function called upon succes, cannot be left blank
     * @param failcallback Function called upon failure, cannot be left blank
     */
-  getCapabilities (succescallback, failcallback, forceReload, xml2jsonrequestURL = this.xml2jsonrequestURL) {
+  getCapabilities (succescallback, failcallback, forceReload, xml2jsonrequestURL = this.xml2jsonrequestURL, options) {
     if (this.busy) {
       let cf = { callback:succescallback, fail:failcallback };
       this.functionCallbackList.push(cf);
@@ -282,7 +284,7 @@ export class WMJSService {
           current.callback(jsonData);
         }
       };
-      WMJSGetCapabilities(this.service, false, succes, fail, xml2jsonrequestURL);
+      WMJSGetCapabilities(this.service, false, succes, fail, xml2jsonrequestURL, options);
     } else {
       succescallback(this.getcapabilitiesDoc);
     }
@@ -319,7 +321,7 @@ export class WMJSService {
     * Calls succes with a hierarchical node structure
     * Calls failure with a string when someting goes wrong
     */
-  getNodes (succes, failure, forceReload, xml2jsonrequestURL = config.xml2jsonrequestURL) {
+  getNodes (succes, failure, forceReload, xml2jsonrequestURL = config.xml2jsonrequestURL, options) {
     /* if(forceReload !== true){
       if(isDefined(this.getcapabilitiesDoc)){
         if(isDefined(this.nodeCache)){
@@ -391,7 +393,7 @@ export class WMJSService {
     let fail = (data) => {
       failure(data);
     };
-    this.getCapabilities(callback, fail, forceReload, xml2jsonrequestURL);
+    this.getCapabilities(callback, fail, forceReload, xml2jsonrequestURL, options);
   };
 
   /** Calls succes with an array of all layernames

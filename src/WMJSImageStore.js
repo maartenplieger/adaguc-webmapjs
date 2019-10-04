@@ -84,7 +84,6 @@ export default class WMJSImageStore {
   removeEventCallback (id) {
     for (let j = 0; j < this._loadEventCallbackList.length; j++) {
       if (this._loadEventCallbackList[j].id === id) {
-        console.log('Removing events for map ' + id);
         this._loadEventCallbackList.splice(j, 1);
       }
     }
@@ -102,7 +101,7 @@ export default class WMJSImageStore {
     return numLoading;
   };
 
-  getImage (src) {
+  getImage (src, options) {
     /** Check if we have an image in the pipeline **/
     let image = this.getImageForSrc(src);
     if (image !== undefined) {
@@ -116,7 +115,7 @@ export default class WMJSImageStore {
       // console.log("Creating new image: "+this.images.length);
       // console.log(type);
       image = new WMJSImage(src, this.imageLoadEventCallback, this._type, this._options);
-      image.setSource(src);
+      image.setSource(src, options);
       image.KVP = new WMJSKVP(src);
       this.imagesbysrc[src] = image;
       image.imageLife = this._imageLifeCounter++;
@@ -143,7 +142,7 @@ export default class WMJSImageStore {
       image = this.imagesbysrc[imageId];
       delete this.imagesbysrc[imageId];
       image.clear();
-      image.setSource(src);
+      image.setSource(src, options);
       image.KVP = new WMJSKVP(src);
       this.imagesbysrc[src] = image;
       image.imageLife = this._imageLifeCounter++;

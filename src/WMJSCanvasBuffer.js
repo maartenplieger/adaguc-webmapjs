@@ -254,7 +254,8 @@ export default class WMJSCanvasBuffer {
     while (layerIndex >= this.layers.length) {
       this.layers.push({ image:this._defaultImage, opacity: opacity, linkedInfo: linkedInfo, loadThisOne: false });
     }
-    let image = this._imageStore.getImage(imageSource);
+    const headers = (linkedInfo && linkedInfo.layer && linkedInfo.layer.headers) ? linkedInfo.layer.headers : [];
+    let image = this._imageStore.getImage(imageSource, { headers: headers });
 
     // image.setZIndex(layerIndex);
 
