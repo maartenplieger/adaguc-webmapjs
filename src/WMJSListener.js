@@ -21,8 +21,11 @@ export default class WMJSListener {
     this.removeEvents = this.removeEvents.bind(this);
     this.suspendEvent = this.suspendEvent.bind(this);
     this.resumeEvent = this.resumeEvent.bind(this);
+    this.suspendEvents = this.suspendEvents.bind(this);
+    this.resumeEvents = this.resumeEvents.bind(this);
     this.triggerEvent = this.triggerEvent.bind(this);
     this.destroy = this.destroy.bind(this);
+    this._allEventsSuspended = false;
   }
   /* Add multiple functions which will be called after the event with the same name is triggered */
   addToCallback (name, functionpointer, keepOnCall) {
@@ -80,9 +83,17 @@ export default class WMJSListener {
     this._suspendedEvents[name] = false;
   };
 
+  suspendEvents () {
+    this._allEventsSuspended = true;
+  };
+
+  resumeEvents () {
+    this._allEventsSuspended = false;
+  };
+
   // Trigger an event with a name
   triggerEvent (name, param) {
-    if (this._suspendedEvents[name] === true) {
+    if (this._allEventsSuspended === true || this._suspendedEvents[name] === true) {
       return;
     }
     let returnList = [];

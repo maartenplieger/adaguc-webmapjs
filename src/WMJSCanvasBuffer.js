@@ -3,7 +3,7 @@ import { error, debug } from './WMJSConstants.js';
 import { isDefined } from './WMJSTools.js';
 import { jquery } from './WMJSExternalDependencies.js';
 export default class WMJSCanvasBuffer {
-  constructor (webmapJSCallback, _type, _imageStore, w, h) {
+  constructor (webmapJSCallback, _type, _imageStore, w, h, internalCallbacks) {
     if (!jquery) { console.warn('WMJSCanvasBuffer: jquery is not defined, assuming unit test is running'); return; }
     this.canvas = jquery('<canvas/>', { 'class':'WMJSCanvasBuffer' }).width(w).height(h);
     this._ctx = this.canvas[0].getContext('2d');
@@ -30,6 +30,7 @@ export default class WMJSCanvasBuffer {
     this._height = h;
     this._type = _type;
     this._webmapJSCallback = webmapJSCallback;
+    this._internalCallbacks = internalCallbacks;
     if (this._type === 'imagebuffer') {
       this.canvas.addClass('wmjsimagebuffer');
     }
@@ -100,6 +101,9 @@ export default class WMJSCanvasBuffer {
       this._ctx.fillStyle = 'white';
       this._ctx.fill();
       this._webmapJSCallback.triggerEvent('beforecanvasstartdraw', this._ctx);
+      if (this._internalCallbacks && this._internalCallbacks.beforecanvasstartdraw) {
+        this._internalCallbacks.beforecanvasstartdraw(this._ctx);
+      }
     }
 
     /* Calculcate new pos */
@@ -163,15 +167,24 @@ export default class WMJSCanvasBuffer {
     if (this._type === 'imagebuffer') {
       if (errorList.length > 0) {
         this._webmapJSCallback.triggerEvent('canvasonerror', errorList);
+        if (this._internalCallbacks && this._internalCallbacks.canvasonerror) {
+          this._internalCallbacks.canvasonerror(errorList);
+        }
       }
     }
     if (this._type === 'imagebuffer') {
       this._webmapJSCallback.triggerEvent('beforecanvasdisplay', this._ctx);
+      if (this._internalCallbacks && this._internalCallbacks.beforecanvasdisplay) {
+        this._internalCallbacks.beforecanvasdisplay(this._ctx);
+      }
     }
 
     this.canvas.show();
     if (this._type === 'imagebuffer') {
       this._webmapJSCallback.triggerEvent('aftercanvasdisplay', this._ctx);
+      if (this._internalCallbacks && this._internalCallbacks.aftercanvasdisplay) {
+        this._internalCallbacks.aftercanvasdisplay(this._ctx);
+      }
     }
   };
 

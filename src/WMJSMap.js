@@ -426,6 +426,8 @@ export default class WMJSMap {
     this.showBoundingBox = this.showBoundingBox.bind(this);
     this.hideBoundingBox = this.hideBoundingBox.bind(this);
     this.clearImageStore = this.clearImageStore.bind(this);
+    this._adagucBeforeDraw = this._adagucBeforeDraw.bind(this);
+    this._adagucBeforeCanvasDisplay = this._adagucBeforeCanvasDisplay.bind(this);    
     if (!jquery) { console.warn('WMJSMap: jquery is not defined, assuming unit test is running'); return; }
     this.loadingDiv = jquery('<div class="WMJSDivBuffer-loading"/>', {});
     this.init();
@@ -568,6 +570,312 @@ export default class WMJSMap {
       this.setTimeOffsetValue = message;
     }
   };
+  _adagucBeforeDraw (ctx) {
+    if (this.baseLayers) {
+      for (let l = 0; l < this.baseLayers.length; l++) {
+        if (this.baseLayers[l].enabled) {
+          if (this.baseLayers[l].keepOnTop === false) {
+            if (this.baseLayers[l].type && this.baseLayers[l].type !== 'twms') continue;
+            if (!this.tileRenderSettings) { console.log('tileRenderSettings not set'); continue; }
+            const { attributionText } = this.wmjsTileRenderer.render(
+              this.bbox,
+              this.updateBBOX,
+              this.srs,
+              this.width,
+              this.height,
+              ctx,
+              bgMapImageStore,
+              this.tileRenderSettings,
+              this.baseLayers[l].name
+            );
+            {
+              const adagucAttribution = ('ADAGUC webmapjs ' + this.WebMapJSMapVersion);
+              const txt = attributionText ? (adagucAttribution + ' | ' + attributionText) : adagucAttribution;
+              const x = this.width - 8;
+              const y = this.height - 8;
+              ctx.font = '10px Arial';
+              ctx.textAlign = 'right';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = '#FFF';
+              ctx.globalAlpha = 0.75;
+              const width = ctx.measureText(txt).width;
+              ctx.fillRect(x - (width), y - 6, (width) + 8, parseInt(14));
+              ctx.fillStyle = '#444';
+              ctx.globalAlpha = 1.0;
+              ctx.fillText(txt, x + 4, y + 2);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  _adagucBeforeCanvasDisplay (ctx) {
+    const drawTextBG = (ctx, txt, x, y, fontSize) => {
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#FFF';
+      ctx.globalAlpha = 0.75;
+      const width = ctx.measureText(txt).width;
+      ctx.fillRect(x - 8, y - 8, width + 16, parseInt(fontSize) + 14);
+      ctx.fillStyle = '#444';
+      ctx.globalAlpha = 1.0;
+      ctx.fillText(txt, x, y + 2);
+    };
+    // console.log('adagucBeforeCanvasDisplay' + this.getId());
+    /* Map Pin */
+    if (this.divMapPin.displayMapPin) {
+      WMJSDrawMarker(ctx, this.divMapPin.x, this.divMapPin.y, '#9090FF', '#000');
+    }
+
+    if (this._displayLegendInMap) {
+      /* Draw legends */
+      let legendPosX = 0;
+      for (let j = 0; j < this.layers.length; j++) {
+        if (this.layers[j].enabled !== false) {
+          let legendUrl = this.getLegendGraphicURLForLayer(this.layers[j]);
+          if (isDefined(legendUrl)) {
+            let image = legendImageStore.getImage(legendUrl);
+            if (image.hasError() === false) {
+              if (image.isLoaded() === false && image.isLoading() === false) {
+                image.load();
+              } else {
+                let el = image.getElement()[0];
+                let legendW = parseInt(el.width) + 4;
+                let legendH = parseInt(el.height) + 4;
+                legendPosX += (legendW + 4);
+                let legendX = this.width - legendPosX + 2;
+                let legendY = this.height - (legendH) - 2 - 13;
+                ctx.beginPath();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.lineWidth = 0.3;
+                ctx.globalAlpha = 0.5;
+                ctx.strokeStyle = '#000000';
+                ctx.rect(parseInt(legendX) + 0.5, parseInt(legendY) + 0.5, legendW, legendH);
+                ctx.fill();
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+                ctx.drawImage(el, legendX, legendY);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    /* Map header */
+    if (this.isMapHeaderEnabled) {
+      ctx.beginPath();
+      ctx.rect(0, 0, this.width, this.mapHeader.height);
+      if (this.mapIsActivated === false) {
+        ctx.globalAlpha = this.mapHeader.hovering ? this.mapHeader.hover.opacity : this.mapHeader.fill.opacity;
+        ctx.fillStyle = this.mapHeader.hovering ? this.mapHeader.hover.color : this.mapHeader.fill.color;
+      } else {
+        ctx.globalAlpha = this.mapHeader.hovering ? this.mapHeader.hoverSelected.opacity : this.mapHeader.selected.opacity;
+        ctx.fillStyle = this.mapHeader.hovering ? this.mapHeader.hoverSelected.color : this.mapHeader.selected.color;
+      }
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    /* Gather errors */
+    for (let i = 0; i < this.layers.length; i++) {
+      // let request = '';
+      for (let j = 0; j < this.layers[i].dimensions.length; j++) {
+        // request += '&' + this._getCorrectWMSDimName(this.layers[i].dimensions[j].name);
+        // request += '=' + URLEncode(this.layers[i].dimensions[j].currentValue);
+        if (this.layers[i].dimensions[j].currentValue === WMJSDateOutSideRange) {
+          this.canvasErrors.push({ linkedInfo: { layer:this.layers[i], message: 'Time outside range' } });
+        } else if (this.layers[i].dimensions[j].currentValue === WMJSDateTooEarlyString) {
+          this.canvasErrors.push({ linkedInfo:{ layer:this.layers[i], message: 'Time too early' } });
+        } else if (this.layers[i].dimensions[j].currentValue === WMJSDateTooLateString) {
+          this.canvasErrors.push({ linkedInfo:{ layer:this.layers[i], message: 'Time too late' } });
+        }
+      }
+    }
+
+    /* Display errors found during drawing canvas */
+    if (this.canvasErrors && this.canvasErrors.length > 0) {
+      let mw = this.width / 2;
+      let mh = 6 + this.canvasErrors.length * 15;
+      let mx = this.width - mw;
+      let my = this.isMapHeaderEnabled ? this.mapHeader.height : 0;
+      ctx.beginPath();
+      ctx.rect(mx, my, mx + mw, my + mh);
+      ctx.fillStyle = 'white';
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'black';
+      ctx.font = '10pt Helvetica';
+      ctx.textAlign = 'left';
+
+      for (let j = 0; j < this.canvasErrors.length; j++) {
+        if (this.canvasErrors[j].linkedInfo) {
+          let message = this.canvasErrors[j].linkedInfo.message ? ', ' + this.canvasErrors[j].linkedInfo.message : '';
+          ctx.fillText('Layer with title ' + this.canvasErrors[j].linkedInfo.layer.title + ' failed to load' + message, mx + 5, my + 11 + j * 15);
+        } else {
+          ctx.fillText('Layer failed to load.', mx + 5, my + 11 + j * 15);
+        }
+      }
+      this.canvasErrors = [];
+    }
+
+    // Time offset message
+    if (this.setTimeOffsetValue !== '') {
+      ctx.font = '20px Helvetica';
+      drawTextBG(ctx, this.setTimeOffsetValue, (this.width / 2) - 70, this.height - 26, 20);
+    }
+
+    // Set message value
+    if (this.setMessageValue !== '') {
+      ctx.font = '15px Helvetica';
+      drawTextBG(ctx, this.setMessageValue, (this.width / 2) - 70, 2, 15);
+    }
+
+    // ScaleBar
+    if (this.showScaleBarInMap === true) {
+      let getScaleBarProperties = () => {
+        let desiredWidth = 25;
+        let realWidth = 0;
+        let numMapUnits = 1.0 / 10000000.0;
+
+        let boxWidth = this.updateBBOX.right - this.updateBBOX.left;
+        let pixelsPerUnit = this.width / boxWidth;
+        if (pixelsPerUnit <= 0) {
+          return;
+        }
+
+        let a = desiredWidth / pixelsPerUnit;
+
+        let divFactor = 0;
+        do {
+          numMapUnits *= 10.0;
+          divFactor = a / numMapUnits;
+          if (divFactor === 0) return;
+          realWidth = desiredWidth / divFactor;
+        } while (realWidth < desiredWidth);
+
+        do {
+          numMapUnits /= 2.0;
+          divFactor = a / numMapUnits;
+          if (divFactor === 0) return;
+          realWidth = desiredWidth / divFactor;
+        } while (realWidth > desiredWidth);
+
+        do {
+          numMapUnits *= 1.2;
+          divFactor = a / numMapUnits;
+          if (divFactor === 0) return;
+          realWidth = desiredWidth / divFactor;
+        } while (realWidth < desiredWidth);
+
+        let roundedMapUnits = numMapUnits;
+
+        let d = Math.pow(10, Math.round(Math.log10(numMapUnits) + 0.5) - 1);
+
+        roundedMapUnits = Math.round(roundedMapUnits / d);
+        if (roundedMapUnits < 2.5)roundedMapUnits = 2.5;
+        if (roundedMapUnits > 2.5 && roundedMapUnits < 7.5)roundedMapUnits = 5;
+        if (roundedMapUnits > 7.5)roundedMapUnits = 10;
+        roundedMapUnits = (roundedMapUnits * d);
+        divFactor = (desiredWidth / pixelsPerUnit) / roundedMapUnits;
+        realWidth = desiredWidth / divFactor;
+        return { width:parseInt(realWidth), mapunits: roundedMapUnits };
+      };
+      let scaleBarProps = getScaleBarProperties();
+      if (scaleBarProps) {
+        let offsetX = 7.5;
+        let offsetY = this.height - 25.5;
+        let scaleBarHeight = 23;
+        ctx.beginPath();
+        ctx.lineWidth = 2.5;
+        ctx.fillStyle = '#000';
+        ctx.strokeStyle = '#000';
+        ctx.font = '9px Helvetica';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        for (let j = 0; j < 2; j++) {
+          ctx.moveTo(offsetX, scaleBarHeight - 2 - j + offsetY);
+          ctx.lineTo(scaleBarProps.width * 2 + offsetX + 1, scaleBarHeight - 2 - j + offsetY);
+        }
+
+        let subDivXW = parseInt(Math.round(scaleBarProps.width / 5));
+        ctx.lineWidth = 0.5;
+        for (let j = 1; j < 5; j++) {
+          ctx.moveTo(offsetX + subDivXW * j, scaleBarHeight - 2 + offsetY);
+          ctx.lineTo(offsetX + subDivXW * j, scaleBarHeight - 2 - 5 + offsetY);
+        }
+        ctx.lineWidth = 1.0;
+        ctx.moveTo(offsetX, scaleBarHeight - 2 + offsetY);
+        ctx.lineTo(offsetX, scaleBarHeight - 2 - 7 + offsetY);
+        ctx.moveTo(offsetX + scaleBarProps.width, scaleBarHeight - 2 + offsetY);
+        ctx.lineTo(offsetX + scaleBarProps.width, scaleBarHeight - 2 - 7 + offsetY);
+        ctx.moveTo(offsetX + scaleBarProps.width * 2 + 1, scaleBarHeight - 2 + offsetY);
+        ctx.lineTo(offsetX + scaleBarProps.width * 2 + 1, scaleBarHeight - 2 - 7 + offsetY);
+
+        let units = '';
+        if (this.srs === 'EPSG:3411') units = 'meter';
+        if (this.srs === 'EPSG:3412') units = 'meter';
+        if (this.srs === 'EPSG:3575') units = 'meter';
+        if (this.srs === 'EPSG:4326') units = 'degrees';
+        if (this.srs === 'EPSG:28992') units = 'meter';
+        if (this.srs === 'EPSG:32661') units = 'meter';
+        if (this.srs === 'EPSG:3857') units = 'meter';
+        if (this.srs === 'EPSG:900913') units = 'meter';
+        if (this.srs === 'EPSG:102100') units = 'meter';
+
+        if (units === 'meter') {
+          if (scaleBarProps.mapunits > 1000) {
+            scaleBarProps.mapunits /= 1000;
+            units = 'km';
+          }
+        }
+        ctx.fillText('0', offsetX - 3, 12 + offsetY);
+
+        // valueStr.print("%g",(p.mapunits));
+        let valueStr = scaleBarProps.mapunits.toPrecision() + '';
+        ctx.fillText(valueStr, offsetX + scaleBarProps.width - valueStr.length * 2.5 + 0, 12 + offsetY);
+        valueStr = (scaleBarProps.mapunits * 2).toPrecision() + '';
+        ctx.fillText(valueStr, offsetX + scaleBarProps.width * 2 - valueStr.length * 2.5 + 0, 12 + offsetY);
+        ctx.fillText(units, offsetX + scaleBarProps.width * 2 + 10, 18 + offsetY);
+        ctx.stroke();
+      }
+    }
+
+    // Mouse projected coords
+    ctx.font = '10px Helvetica';
+    ctx.textBaseline = 'middle';
+    if (isDefined(this.mouseGeoCoordXY)) {
+      let roundingFactor = 1.0 / Math.pow(10, parseInt(Math.log((this.bbox.right - this.bbox.left) / this.width) / Math.log(10)) - 2);
+      if (roundingFactor < 1)roundingFactor = 1;
+      ctx.fillStyle = '#000000';
+      let xText = Math.round(this.mouseGeoCoordXY.x * roundingFactor) / roundingFactor;
+      let yText = Math.round(this.mouseGeoCoordXY.y * roundingFactor) / roundingFactor;
+      let units = '';
+      if (this.srs === 'EPSG:3857') {
+        units = 'meter';
+      }
+      ctx.fillText('CoordYX: (' + yText + ', ' + xText + ') ' + units, 5, this.height - 50);
+    }
+    // Mouse latlon coords
+    if (isDefined(this.mouseUpdateCoordinates)) {
+      let llCoord = this.getLatLongFromPixelCoord(this.mouseUpdateCoordinates);
+
+      if (isDefined(llCoord)) {
+        let roundingFactor = 100;
+        ctx.fillStyle = '#000000';
+        let xText = Math.round(llCoord.x * roundingFactor) / roundingFactor;
+        let yText = Math.round(llCoord.y * roundingFactor) / roundingFactor;
+        ctx.fillText('Lat/Lon: (' + yText.toFixed(2) + ', ' + xText.toFixed(2) + ') ' + ' degrees', 5, this.height - 38);
+      }
+    }
+    ctx.fillStyle = '#000000';
+    ctx.fillText('Map projection: ' + this.srs, 5, this.height - 26);
+
+    // ctx.font = '7px Helvetica';
+    // ctx.fillText('ADAGUC webmapjs ' + this.WebMapJSMapVersion, this.width - 85, this.height - 5);
+  }
 
   /* Is called when the WebMapJS object is created */
   init () {
@@ -721,7 +1029,11 @@ export default class WMJSMap {
     this.setSize(this.mainElement.clientWidth, this.mainElement.clientHeight);
     // IMAGE buffers
     for (let j = 0; j < 2; j++) {
-      let d = new WMJSCanvasBuffer(this.callBack, 'imagebuffer', getMapImageStore, this.getWidth(), this.getHeight());
+      let d = new WMJSCanvasBuffer(this.callBack, 'imagebuffer', getMapImageStore, this.getWidth(), this.getHeight(), {
+        beforecanvasstartdraw: this._adagucBeforeDraw,
+        beforecanvasdisplay: this._adagucBeforeCanvasDisplay,
+        canvasonerror: (e) => { this.canvasErrors = e; }
+      });
       getMapImageStore.addLoadEventCallback(d.imageLoadComplete, this.mainElement.id, 'getMapImageStore');
       this.baseDiv.append(d.getBuffer());
       this.divBuffer.push(d);
@@ -740,322 +1052,6 @@ export default class WMJSMap {
     bgMapImageStore.addLoadEventCallback(() => {
       this.draw('bgMapImageStore loaded');
     }, this.mainElement.id, 'bgMapImageStore');
-    let adagucBeforeDraw = (ctx) => {
-      if (this.baseLayers) {
-        for (let l = 0; l < this.baseLayers.length; l++) {
-          if (this.baseLayers[l].enabled) {
-            if (this.baseLayers[l].keepOnTop === false) {
-              if (this.baseLayers[l].type && this.baseLayers[l].type !== 'twms') continue;
-              if (!this.tileRenderSettings) { console.log('tileRenderSettings not set'); continue; }
-              const { attributionText } = this.wmjsTileRenderer.render(
-                this.bbox,
-                this.updateBBOX,
-                this.srs,
-                this.width,
-                this.height,
-                ctx,
-                bgMapImageStore,
-                this.tileRenderSettings,
-                this.baseLayers[l].name
-              );
-              {
-                const adagucAttribution = ('ADAGUC webmapjs ' + this.WebMapJSMapVersion);
-                const txt = attributionText ? (adagucAttribution + ' | ' + attributionText) : adagucAttribution;
-                const x = this.width - 8;
-                const y = this.height - 8;
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#FFF';
-                ctx.globalAlpha = 0.75;
-                const width = ctx.measureText(txt).width;
-                ctx.fillRect(x - (width), y - 6, (width) + 8, parseInt(14));
-                ctx.fillStyle = '#444';
-                ctx.globalAlpha = 1.0;
-                ctx.fillText(txt, x + 4, y + 2);
-              }
-            }
-          }
-        }
-      }
-    };
-
-    this.addListener('beforecanvasstartdraw', adagucBeforeDraw, true);
-
-    let drawTextBG = (ctx, txt, x, y, fontSize) => {
-      ctx.textBaseline = 'top';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#FFF';
-      ctx.globalAlpha = 0.75;
-      const width = ctx.measureText(txt).width;
-      ctx.fillRect(x - 8, y - 8, width + 16, parseInt(fontSize) + 14);
-      ctx.fillStyle = '#444';
-      ctx.globalAlpha = 1.0;
-      ctx.fillText(txt, x, y + 2);
-    };
-
-    let adagucBeforeCanvasDisplay = (ctx) => {
-      // console.log('adagucBeforeCanvasDisplay' + this.getId());
-      /* Map Pin */
-      if (this.divMapPin.displayMapPin) {
-        WMJSDrawMarker(ctx, this.divMapPin.x, this.divMapPin.y, '#9090FF', '#000');
-      }
-
-      if (this._displayLegendInMap) {
-        /* Draw legends */
-        let legendPosX = 0;
-        for (let j = 0; j < this.layers.length; j++) {
-          if (this.layers[j].enabled !== false) {
-            let legendUrl = this.getLegendGraphicURLForLayer(this.layers[j]);
-            if (isDefined(legendUrl)) {
-              let image = legendImageStore.getImage(legendUrl);
-              if (image.hasError() === false) {
-                if (image.isLoaded() === false && image.isLoading() === false) {
-                  image.load();
-                } else {
-                  let el = image.getElement()[0];
-                  let legendW = parseInt(el.width) + 4;
-                  let legendH = parseInt(el.height) + 4;
-                  legendPosX += (legendW + 4);
-                  let legendX = this.width - legendPosX + 2;
-                  let legendY = this.height - (legendH) - 2 - 13;
-                  ctx.beginPath();
-                  ctx.fillStyle = '#FFFFFF';
-                  ctx.lineWidth = 0.3;
-                  ctx.globalAlpha = 0.5;
-                  ctx.strokeStyle = '#000000';
-                  ctx.rect(parseInt(legendX) + 0.5, parseInt(legendY) + 0.5, legendW, legendH);
-                  ctx.fill();
-                  ctx.stroke();
-                  ctx.globalAlpha = 1.0;
-                  ctx.drawImage(el, legendX, legendY);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      /* Map header */
-      if (this.isMapHeaderEnabled) {
-        ctx.beginPath();
-        ctx.rect(0, 0, this.width, this.mapHeader.height);
-        if (this.mapIsActivated === false) {
-          ctx.globalAlpha = this.mapHeader.hovering ? this.mapHeader.hover.opacity : this.mapHeader.fill.opacity;
-          ctx.fillStyle = this.mapHeader.hovering ? this.mapHeader.hover.color : this.mapHeader.fill.color;
-        } else {
-          ctx.globalAlpha = this.mapHeader.hovering ? this.mapHeader.hoverSelected.opacity : this.mapHeader.selected.opacity;
-          ctx.fillStyle = this.mapHeader.hovering ? this.mapHeader.hoverSelected.color : this.mapHeader.selected.color;
-        }
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-
-      /* Gather errors */
-      for (let i = 0; i < this.layers.length; i++) {
-        // let request = '';
-        for (let j = 0; j < this.layers[i].dimensions.length; j++) {
-          // request += '&' + this._getCorrectWMSDimName(this.layers[i].dimensions[j].name);
-          // request += '=' + URLEncode(this.layers[i].dimensions[j].currentValue);
-          if (this.layers[i].dimensions[j].currentValue === WMJSDateOutSideRange) {
-            this.canvasErrors.push({ linkedInfo: { layer:this.layers[i], message: 'Time outside range' } });
-          } else if (this.layers[i].dimensions[j].currentValue === WMJSDateTooEarlyString) {
-            this.canvasErrors.push({ linkedInfo:{ layer:this.layers[i], message: 'Time too early' } });
-          } else if (this.layers[i].dimensions[j].currentValue === WMJSDateTooLateString) {
-            this.canvasErrors.push({ linkedInfo:{ layer:this.layers[i], message: 'Time too late' } });
-          }
-        }
-      }
-
-      /* Display errors found during drawing canvas */
-      if (this.canvasErrors && this.canvasErrors.length > 0) {
-        let mw = this.width / 2;
-        let mh = 6 + this.canvasErrors.length * 15;
-        let mx = this.width - mw;
-        let my = this.isMapHeaderEnabled ? this.mapHeader.height : 0;
-        ctx.beginPath();
-        ctx.rect(mx, my, mx + mw, my + mh);
-        ctx.fillStyle = 'white';
-        ctx.globalAlpha = 0.9;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = 'black';
-        ctx.font = '10pt Helvetica';
-        ctx.textAlign = 'left';
-
-        for (let j = 0; j < this.canvasErrors.length; j++) {
-          if (this.canvasErrors[j].linkedInfo) {
-            let message = this.canvasErrors[j].linkedInfo.message ? ', ' + this.canvasErrors[j].linkedInfo.message : '';
-            ctx.fillText('Layer with title ' + this.canvasErrors[j].linkedInfo.layer.title + ' failed to load' + message, mx + 5, my + 11 + j * 15);
-          } else {
-            ctx.fillText('Layer failed to load.', mx + 5, my + 11 + j * 15);
-          }
-        }
-        this.canvasErrors = [];
-      }
-
-      // Time offset message
-      if (this.setTimeOffsetValue !== '') {
-        ctx.font = '20px Helvetica';
-        drawTextBG(ctx, this.setTimeOffsetValue, (this.width / 2) - 70, this.height - 26, 20);
-      }
-
-      // Set message value
-      if (this.setMessageValue !== '') {
-        ctx.font = '15px Helvetica';
-        drawTextBG(ctx, this.setMessageValue, (this.width / 2) - 70, 2, 15);
-      }
-
-      // ScaleBar
-      if (this.showScaleBarInMap === true) {
-        let getScaleBarProperties = () => {
-          let desiredWidth = 25;
-          let realWidth = 0;
-          let numMapUnits = 1.0 / 10000000.0;
-
-          let boxWidth = this.updateBBOX.right - this.updateBBOX.left;
-          let pixelsPerUnit = this.width / boxWidth;
-          if (pixelsPerUnit <= 0) {
-            return;
-          }
-
-          let a = desiredWidth / pixelsPerUnit;
-
-          let divFactor = 0;
-          do {
-            numMapUnits *= 10.0;
-            divFactor = a / numMapUnits;
-            if (divFactor === 0) return;
-            realWidth = desiredWidth / divFactor;
-          } while (realWidth < desiredWidth);
-
-          do {
-            numMapUnits /= 2.0;
-            divFactor = a / numMapUnits;
-            if (divFactor === 0) return;
-            realWidth = desiredWidth / divFactor;
-          } while (realWidth > desiredWidth);
-
-          do {
-            numMapUnits *= 1.2;
-            divFactor = a / numMapUnits;
-            if (divFactor === 0) return;
-            realWidth = desiredWidth / divFactor;
-          } while (realWidth < desiredWidth);
-
-          let roundedMapUnits = numMapUnits;
-
-          let d = Math.pow(10, Math.round(Math.log10(numMapUnits) + 0.5) - 1);
-
-          roundedMapUnits = Math.round(roundedMapUnits / d);
-          if (roundedMapUnits < 2.5)roundedMapUnits = 2.5;
-          if (roundedMapUnits > 2.5 && roundedMapUnits < 7.5)roundedMapUnits = 5;
-          if (roundedMapUnits > 7.5)roundedMapUnits = 10;
-          roundedMapUnits = (roundedMapUnits * d);
-          divFactor = (desiredWidth / pixelsPerUnit) / roundedMapUnits;
-          realWidth = desiredWidth / divFactor;
-          return { width:parseInt(realWidth), mapunits: roundedMapUnits };
-        };
-        let scaleBarProps = getScaleBarProperties();
-        if (scaleBarProps) {
-          let offsetX = 7.5;
-          let offsetY = this.height - 25.5;
-          let scaleBarHeight = 23;
-          ctx.beginPath();
-          ctx.lineWidth = 2.5;
-          ctx.fillStyle = '#000';
-          ctx.strokeStyle = '#000';
-          ctx.font = '9px Helvetica';
-          ctx.textBaseline = 'middle';
-          ctx.textAlign = 'left';
-          for (let j = 0; j < 2; j++) {
-            ctx.moveTo(offsetX, scaleBarHeight - 2 - j + offsetY);
-            ctx.lineTo(scaleBarProps.width * 2 + offsetX + 1, scaleBarHeight - 2 - j + offsetY);
-          }
-
-          let subDivXW = parseInt(Math.round(scaleBarProps.width / 5));
-          ctx.lineWidth = 0.5;
-          for (let j = 1; j < 5; j++) {
-            ctx.moveTo(offsetX + subDivXW * j, scaleBarHeight - 2 + offsetY);
-            ctx.lineTo(offsetX + subDivXW * j, scaleBarHeight - 2 - 5 + offsetY);
-          }
-          ctx.lineWidth = 1.0;
-          ctx.moveTo(offsetX, scaleBarHeight - 2 + offsetY);
-          ctx.lineTo(offsetX, scaleBarHeight - 2 - 7 + offsetY);
-          ctx.moveTo(offsetX + scaleBarProps.width, scaleBarHeight - 2 + offsetY);
-          ctx.lineTo(offsetX + scaleBarProps.width, scaleBarHeight - 2 - 7 + offsetY);
-          ctx.moveTo(offsetX + scaleBarProps.width * 2 + 1, scaleBarHeight - 2 + offsetY);
-          ctx.lineTo(offsetX + scaleBarProps.width * 2 + 1, scaleBarHeight - 2 - 7 + offsetY);
-
-          let units = '';
-          if (this.srs === 'EPSG:3411') units = 'meter';
-          if (this.srs === 'EPSG:3412') units = 'meter';
-          if (this.srs === 'EPSG:3575') units = 'meter';
-          if (this.srs === 'EPSG:4326') units = 'degrees';
-          if (this.srs === 'EPSG:28992') units = 'meter';
-          if (this.srs === 'EPSG:32661') units = 'meter';
-          if (this.srs === 'EPSG:3857') units = 'meter';
-          if (this.srs === 'EPSG:900913') units = 'meter';
-          if (this.srs === 'EPSG:102100') units = 'meter';
-
-          if (units === 'meter') {
-            if (scaleBarProps.mapunits > 1000) {
-              scaleBarProps.mapunits /= 1000;
-              units = 'km';
-            }
-          }
-          ctx.fillText('0', offsetX - 3, 12 + offsetY);
-
-          // valueStr.print("%g",(p.mapunits));
-          let valueStr = scaleBarProps.mapunits.toPrecision() + '';
-          ctx.fillText(valueStr, offsetX + scaleBarProps.width - valueStr.length * 2.5 + 0, 12 + offsetY);
-          valueStr = (scaleBarProps.mapunits * 2).toPrecision() + '';
-          ctx.fillText(valueStr, offsetX + scaleBarProps.width * 2 - valueStr.length * 2.5 + 0, 12 + offsetY);
-          ctx.fillText(units, offsetX + scaleBarProps.width * 2 + 10, 18 + offsetY);
-          ctx.stroke();
-        }
-      }
-
-      // Mouse projected coords
-      ctx.font = '10px Helvetica';
-      ctx.textBaseline = 'middle';
-      if (isDefined(this.mouseGeoCoordXY)) {
-        let roundingFactor = 1.0 / Math.pow(10, parseInt(Math.log((this.bbox.right - this.bbox.left) / this.width) / Math.log(10)) - 2);
-        if (roundingFactor < 1)roundingFactor = 1;
-        ctx.fillStyle = '#000000';
-        let xText = Math.round(this.mouseGeoCoordXY.x * roundingFactor) / roundingFactor;
-        let yText = Math.round(this.mouseGeoCoordXY.y * roundingFactor) / roundingFactor;
-        let units = '';
-        if (this.srs === 'EPSG:3857') {
-          units = 'meter';
-        }
-        ctx.fillText('CoordYX: (' + yText + ', ' + xText + ') ' + units, 5, this.height - 50);
-      }
-      // Mouse latlon coords
-      if (isDefined(this.mouseUpdateCoordinates)) {
-        let llCoord = this.getLatLongFromPixelCoord(this.mouseUpdateCoordinates);
-
-        if (isDefined(llCoord)) {
-          let roundingFactor = 100;
-          ctx.fillStyle = '#000000';
-          let xText = Math.round(llCoord.x * roundingFactor) / roundingFactor;
-          let yText = Math.round(llCoord.y * roundingFactor) / roundingFactor;
-          ctx.fillText('Lat/Lon: (' + yText.toFixed(2) + ', ' + xText.toFixed(2) + ') ' + ' degrees', 5, this.height - 38);
-        }
-      }
-      ctx.fillStyle = '#000000';
-      ctx.fillText('Map projection: ' + this.srs, 5, this.height - 26);
-
-      // ctx.font = '7px Helvetica';
-      // ctx.fillText('ADAGUC webmapjs ' + this.WebMapJSMapVersion, this.width - 85, this.height - 5);
-    };
-    this.addListener('beforecanvasdisplay', (ctx) => {
-      adagucBeforeCanvasDisplay(ctx);
-      //       window.requestAnimationFrame(() => {
-      //         this.draw();
-      //       });
-    }, true);
-    this.addListener('canvasonerror', (e) => { this.canvasErrors = e; }, true);
     this._updateBoundingBox(this.bbox);
     this.wmjsAnimate = new WMJSAnimate(this);
     this.wmjsTileRenderer = new WMJSTileRenderer();
