@@ -427,7 +427,8 @@ export default class WMJSMap {
     this.hideBoundingBox = this.hideBoundingBox.bind(this);
     this.clearImageStore = this.clearImageStore.bind(this);
     this._adagucBeforeDraw = this._adagucBeforeDraw.bind(this);
-    this._adagucBeforeCanvasDisplay = this._adagucBeforeCanvasDisplay.bind(this);    
+    this._adagucBeforeCanvasDisplay = this._adagucBeforeCanvasDisplay.bind(this);
+    this.displayScaleBarInMap = this.displayScaleBarInMap.bind(this);    
     if (!jquery) { console.warn('WMJSMap: jquery is not defined, assuming unit test is running'); return; }
     this.loadingDiv = jquery('<div class="WMJSDivBuffer-loading"/>', {});
     this.init();
@@ -1701,6 +1702,10 @@ export default class WMJSMap {
     this.showScaleBarInMap = false;
     console.log('todo hideScaleBar');
   };
+
+  displayScaleBarInMap (display) {
+    this.showScaleBarInMap = display;
+  }
 
   getMaxNumberOfAnimations () {
     return maxAnimationSteps;
