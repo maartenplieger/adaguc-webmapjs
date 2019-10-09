@@ -154,6 +154,10 @@ export default class WMJSImage {
         var imageStr = arrayBufferToBase64(buffer);
         this.getElement()[0].src = base64Flag + imageStr;
       });
+    }).catch((e) => {
+      console.error('Unable to fetch image ' + url + ' with headers [' + JSON.stringify(headers) + ']');
+      if (url.startsWith('http://')) console.error('Note that URL starts with http:// instead of https://');
+      this.loadEvent(this, true);
     });
   }
 
@@ -210,7 +214,6 @@ export default class WMJSImage {
       this._getImageWithHeaders(this.srcToLoad, this.headers);
     } else {
       /* Do a standard img.src url request */
-
       if (this.randomize) {
         this.getElement()[0].src = this.srcToLoad + '&' + Math.random();
         // this.el.attr('src', this.srcToLoad + '&' + Math.random());
