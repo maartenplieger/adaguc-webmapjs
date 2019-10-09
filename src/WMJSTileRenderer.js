@@ -116,7 +116,7 @@ export default class WMJSTileRenderer {
 
         if (loadImage === false) {
           /* Here we display lower resolution images, if not available switch to an even higher resolution */
-          if (image.isLoaded()) {
+          if (image.isLoaded() && !image.hasError()) {
             try {
               ctx.drawImage(image.getElement()[0], parseInt(bl.x), parseInt(bl.y), parseInt(tr.x - bl.x) + 1, parseInt(tr.y - bl.y) + 1);
             } catch (e) {
@@ -135,8 +135,9 @@ export default class WMJSTileRenderer {
             }
           }
           /* Here we display the images we like to have at the desired resolution */
-          if (image.isLoaded()) {
+          if (image.isLoaded() && !image.hasError()) {
             imagesToRender.push({
+              image: image,
               i: image.getElement()[0],
               x:  parseInt(bl.x),
               y: parseInt(bl.y),
@@ -174,12 +175,18 @@ export default class WMJSTileRenderer {
       return 0;
     });
     for (let i = 0; i < imagesToRender.length; i++) {
-      ctx.drawImage(imagesToRender[i].i,
-        imagesToRender[i].x,
-        imagesToRender[i].y,
-        imagesToRender[i].w,
-        imagesToRender[i].h
-      );
+      const image = imagesToRender[i];
+      if (image.image.isLoaded() && !image.image.hasError()) {
+        try {
+          ctx.drawImage(image.i,
+            image.x,
+            image.y,
+            image.w,
+            image.h
+          );
+        } catch (e) {
+        }
+      }
       // ctx.fillText(i, imagesToRender[i].x + 20, imagesToRender[i].y + 20);
     };
     const attributionText = getAttribution(tileLayer);
