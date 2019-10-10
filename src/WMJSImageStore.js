@@ -101,21 +101,22 @@ export default class WMJSImageStore {
     return numLoading;
   };
 
-  getImage (src, options) {
+  getImage (src, loadOptions) {
+    if (!src) {
+      console.log('getImage, no src set');
+      return;
+    }
     /** Check if we have an image in the pipeline **/
     let image = this.getImageForSrc(src);
     if (image !== undefined) {
       image.imageLife = this._imageLifeCounter++;
-      // console.log("Found image");
       return image;
     }
 
     /** Create or reuse an image **/
     if (this._getKeys(this.imagesbysrc).length < this._maxNumberOfImages) {
-      // console.log("Creating new image: "+this.images.length);
-      // console.log(type);
       image = new WMJSImage(src, this.imageLoadEventCallback, this._type, this._options);
-      image.setSource(src, options);
+      image.setSource(src, loadOptions);
       image.KVP = new WMJSKVP(src);
       this.imagesbysrc[src] = image;
       image.imageLife = this._imageLifeCounter++;
@@ -133,7 +134,6 @@ export default class WMJSImageStore {
           }
         }
       });
-      // console.log('Reusing image ' + imageId + ' with lifetime ' + minImageLife);
       if (imageId === -1) {
         console.error('not enough cache for ' + this._type);
         return this.emptyImage;
@@ -142,7 +142,7 @@ export default class WMJSImageStore {
       image = this.imagesbysrc[imageId];
       delete this.imagesbysrc[imageId];
       image.clear();
-      image.setSource(src, options);
+      image.setSource(src, loadOptions);
       image.KVP = new WMJSKVP(src);
       this.imagesbysrc[src] = image;
       image.imageLife = this._imageLifeCounter++;

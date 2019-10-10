@@ -428,7 +428,7 @@ export default class WMJSMap {
     this.clearImageStore = this.clearImageStore.bind(this);
     this._adagucBeforeDraw = this._adagucBeforeDraw.bind(this);
     this._adagucBeforeCanvasDisplay = this._adagucBeforeCanvasDisplay.bind(this);
-    this.displayScaleBarInMap = this.displayScaleBarInMap.bind(this);    
+    this.displayScaleBarInMap = this.displayScaleBarInMap.bind(this);
     if (!jquery) { console.warn('WMJSMap: jquery is not defined, assuming unit test is running'); return; }
     this.loadingDiv = jquery('<div class="WMJSDivBuffer-loading"/>', {});
     this.init();
@@ -636,7 +636,7 @@ export default class WMJSMap {
         if (this.layers[j].enabled !== false) {
           let legendUrl = this.getLegendGraphicURLForLayer(this.layers[j]);
           if (isDefined(legendUrl)) {
-            let image = legendImageStore.getImage(legendUrl);
+            let image = legendImageStore.getImage(legendUrl, { headers: this.layers[j].headers });
             if (image.hasError() === false) {
               if (image.isLoaded() === false && image.isLoading() === false) {
                 image.load();
@@ -881,27 +881,35 @@ export default class WMJSMap {
   /* Is called when the WebMapJS object is created */
   init () {
     try {
+      // eslint-disable-next-line no-undef
       if (geoNamesURL) {
+        // eslint-disable-next-line no-undef
         this.geoNamesURL = geoNamesURL;
       }
     } catch (e) {
     }
     try {
+      // eslint-disable-next-line no-undef
       if (defaultUsernameSearch) {
+        // eslint-disable-next-line no-undef
         this.defaultUsernameSearch = defaultUsernameSearch;
       }
     } catch (e) {
     }
 
     try {
+      // eslint-disable-next-line no-undef
       if (xml2jsonrequestURL) {
+        // eslint-disable-next-line no-undef
         this.setXML2JSONURL(xml2jsonrequestURL);
       }
     } catch (e) {
     }
 
     try {
+      // eslint-disable-next-line no-undef
       if (WMJSTileRendererTileSettings) {
+        // eslint-disable-next-line no-undef
         this.setWMJSTileRendererTileSettings(WMJSTileRendererTileSettings);
       }
     } catch (e) {
@@ -1507,10 +1515,9 @@ export default class WMJSMap {
 
   // Build a valid WMS request for a certain layer
   buildWMSGetMapRequest (layer) {
-    if (!isDefined(layer.name)) return;
+    if (!isDefined(layer.name)) return { url:undefined, headers: null };
     if (!layer.format) { layer.format = 'image/png'; error('layer format missing!'); }
-    if (layer.name.length < 1) return;
-
+    if (layer.name.length < 1) return { url:undefined, headers: null };
     // GetFeatureInfo timeseries in the mapview
     if (this.srs === 'GFI:TIME_ELEVATION') {
       let x = 707;
@@ -1557,7 +1564,7 @@ export default class WMJSMap {
       request += '&time=' + startDate + '/' + stopDate;
       request += '&elevation=' + this.bbox.bottom + '/' + this.bbox.top;
 
-      return request;
+      return { url: request, headers: layer.headers };
     }
 
     let request = layer.getmapURL;
@@ -1584,11 +1591,11 @@ export default class WMJSMap {
     try {
       request += this._getMapDimURL(layer);
     } catch (e) {
-      return undefined;
+      return { url: null, headers:null };
     }
     // Handle WMS extensions
     request += layer.wmsextensions.url;
-    return request;
+    return { url: request, headers: layer.headers };
   };
 
   abort () {
@@ -1902,7 +1909,7 @@ export default class WMJSMap {
     for (let j = 0; j < n; j++) {
       if (this.layers[j].service && this.layers[j].enabled) {
         let request = this.buildWMSGetMapRequest(this.layers[j]);
-        if (request) {
+        if (request.url) {
           requests.push(request);
         }
       }
@@ -1919,7 +1926,7 @@ export default class WMJSMap {
   prefetch (requests) {
     let prefetching = [];
     for (let j = 0; j < requests.length; j++) {
-      let image = getMapImageStore.getImage(requests[j]);
+      let image = getMapImageStore.getImage(requests[j].url, { headers: requests[j].headers });
       if (image.isLoaded() === false && image.isLoading() === false) {
         prefetching.push(image);
         image.load();
@@ -1953,7 +1960,6 @@ export default class WMJSMap {
 
     let loadLayers = () => {
       if (enableConsoleDebugging)console.log('loadLayers');
-      let request;
 
       let currentLayerIndex = 0;
       this.numBaseLayers = 0;
@@ -1963,10 +1969,10 @@ export default class WMJSMap {
             if (this.baseLayers[l].keepOnTop === false) {
               if (this.baseLayers[l].type && this.baseLayers[l].type === 'twms') continue;
               this.numBaseLayers++;
-              request = this.buildWMSGetMapRequest(this.baseLayers[l]);
+              const requestURL = this.buildWMSGetMapRequest(this.baseLayers[l]).url;
 
-              if (request) {
-                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer: this.baseLayers[l] }, this.baseLayers[l].opacity);
+              if (requestURL) {
+                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, requestURL, this.getWidth(), this.getHeight(), { layer: this.baseLayers[l] }, this.baseLayers[l].opacity);
                 currentLayerIndex++;
               }
             }
@@ -1978,9 +1984,9 @@ export default class WMJSMap {
         if (this.layers[j].service && this.layers[j].enabled) {
           /* Get the dimension object for this layer */
           let layerDimensionsObject = this.layers[j].dimensions;// getLayerDimensions(layers[j]);
-          request = this.buildWMSGetMapRequest(this.layers[j], layerDimensionsObject);
-          if (request) {
-            this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer: this.layers[j] }, this.layers[j].opacity);
+          const requestURL = this.buildWMSGetMapRequest(this.layers[j], layerDimensionsObject).url;
+          if (requestURL) {
+            this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, requestURL, this.getWidth(), this.getHeight(), { layer: this.layers[j] }, this.layers[j].opacity);
             this.layers[j].image = this.divBuffer[this.newSwapBuffer].layers[currentLayerIndex];
             currentLayerIndex++;
           }
@@ -1991,9 +1997,9 @@ export default class WMJSMap {
         for (let l = 0; l < this.baseLayers.length; l++) {
           if (this.baseLayers[l].enabled) {
             if (this.baseLayers[l].keepOnTop === true) {
-              request = this.buildWMSGetMapRequest(this.baseLayers[l]);
-              if (request) {
-                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, request, this.getWidth(), this.getHeight(), { layer:this.baseLayers[l] }, this.baseLayers[l].opacity);
+              const requestURL = this.buildWMSGetMapRequest(this.baseLayers[l]).url;
+              if (requestURL) {
+                this.divBuffer[this.newSwapBuffer].setSrc(currentLayerIndex, requestURL, this.getWidth(), this.getHeight(), { layer:this.baseLayers[l] }, this.baseLayers[l].opacity);
                 currentLayerIndex++;
               }
             }

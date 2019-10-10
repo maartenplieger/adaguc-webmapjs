@@ -221,7 +221,6 @@ export default class WMJSCanvasBuffer {
 
   load (callback) {
     if (this.ready === false) {
-      // console.log(" ===== Still busy ====== ");
       return;
     }
     this.ready = false;

@@ -87,13 +87,14 @@ export default class WMJSImage {
    * Set source of image, does not load yet.
    */
   setSource (src, options) {
-    // console.log('image::setSource', options);
     if (this._isLoading) {
       console.error('-------------------------> Source set while still loading!!! ');
       return;
     }
     this.srcToLoad = src;
-    if (options && options.headers) this.headers = options.headers;
+    if (options && options.headers && options.headers.length > 0) {
+      this.headers = options.headers;
+    }
     if (this._srcLoaded === this.srcToLoad) {
       this._isLoaded = true;
       return;

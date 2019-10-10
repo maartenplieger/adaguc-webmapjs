@@ -105,7 +105,7 @@ export default class WMJSAnimate {
       animationStep = this._map.animationList[this._map.currentAnimationStep];
       this._map.setDimension(animationStep.name, animationStep.value, false);
       for (let i = 0; i < this._map.animationList[nextStep].requests.length; i++) {
-        let url = this._map.animationList[nextStep].requests[i];
+        let url = this._map.animationList[nextStep].requests[i].url;
         let image = this._map.getImageStore().getImageForSrc(url);
         if (image && image.isLoaded()) {
           numReady++;

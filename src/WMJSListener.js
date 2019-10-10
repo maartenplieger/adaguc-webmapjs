@@ -39,7 +39,6 @@ export default class WMJSListener {
       // If the current callback already exist, we will simply keep it
       if (this._callBacks[j].name === name && this._callBacks[j].functionpointer === functionpointer) {
         // this._callBacks[j].timesAdded++;
-        // console.log('listener already added: ', name);
         this._callBacks[j].keepOnCall = keepOnCall;
         return false;
       }
@@ -47,8 +46,6 @@ export default class WMJSListener {
     if (cbp === -1) {
       cbp = this._callBacks.length;
       this._callBacks.push(new CallBackFunction());
-    } else {
-      // console.log('replacing old unused listener: ', name);
     }
     this._callBacks[cbp].name = name;
     this._callBacks[cbp].functionpointer = functionpointer;
