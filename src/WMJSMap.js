@@ -1605,6 +1605,7 @@ export default class WMJSMap {
   abort () {
     this.callBack.triggerEvent('onmapready');
     this.mapBusy = false;
+    this.drawPending = false;
     this.callBack.triggerEvent('onloadingcomplete');
   };
 
@@ -1833,6 +1834,7 @@ export default class WMJSMap {
     }
     if (this.drawPending) {
       this.needsRedraw = true;
+      // console.log('DrawPending');
       return;
     }
     this.drawPending = true;
@@ -1952,7 +1954,11 @@ export default class WMJSMap {
   };
 
   _pdraw () {
-    if (this.initialized === 0) return;
+    if (this.initialized === 0) {
+      console.log('map is not initialized');
+      this._drawReady();
+      return;
+    }
 
     if (this.suspendDrawing === true) {
       if (this.callBack.addToCallback('onresumesuspend', this._onResumeSuspendCallbackFunction) === true) {
@@ -2016,16 +2022,9 @@ export default class WMJSMap {
       // makeInfoHTML();
     };
 
-    /* if layers are not ready yet, wait for them */
-    if (this.layersBusy === 1) {
-      if (this.callBack.addToCallback('onlayersready', this._onLayersReadyCallbackFunction) === true) {
-        debug('Suspending on onlayersready');
-      }
-      return;
-    }
     if (this.mapBusy) {
       if (this.callBack.addToCallback('onmapready', this._onMapReadyCallbackFunction) === true) {
-        debug('Suspending on onmapready');
+        console.log('Suspending on onmapready');
       }
       return;
     }
@@ -2055,7 +2054,10 @@ export default class WMJSMap {
     this.loadingDivTimer.init(500, () => { this.loadingDiv.show(); });
     this.loadingBBOX.setBBOX(this.bbox);
 
-    if (!this.divBuffer[current]) return;
+    if (!this.divBuffer[current]) {
+      this._drawReady();
+      return;
+    }
     // console.log('Start loading ' + this.mainElement.id);
     this.divBuffer[current].load(
       () => {
