@@ -140,7 +140,11 @@ export default class WMJSCanvasBuffer {
           this._ctx.fill();
           this._ctx.stroke();
           this._ctx.globalAlpha = 1.0;
-          this._ctx.drawImage(el, legendX, legendY);
+          try {
+            this._ctx.drawImage(el, legendX, legendY);
+          } catch (e) {
+            console.log('146', e);
+          }
         } else {
           if (newbbox) {
             let imageX = parseInt(coord1.x + 0.5);
@@ -149,12 +153,24 @@ export default class WMJSCanvasBuffer {
             let imageH = parseInt((coord2.y - coord1.y) + 0.5);
 
             if ((imageW) === parseInt(this._ctx.canvas.width) && (imageH) === parseInt(this._ctx.canvas.height)) {
-              this._ctx.drawImage(el, imageX, imageY);
+              try {
+                this._ctx.drawImage(el, imageX, imageY);
+              } catch (e) {
+                console.log('159', e);
+              }
             } else {
-              this._ctx.drawImage(el, imageX, imageY, imageW, imageH);
+              try {
+                this._ctx.drawImage(el, imageX, imageY, imageW, imageH);
+              } catch (e) {
+                console.log('165', e);
+              }
             }
           } else {
-            this._ctx.drawImage(el, 0, 0, this._width, this._height);
+            try {
+              this._ctx.drawImage(el, 0, 0, this._width, this._height);
+            } catch (e) {
+              console.log('172', e);
+            }
           }
         }
       } else {

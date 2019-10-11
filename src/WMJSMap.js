@@ -656,7 +656,11 @@ export default class WMJSMap {
                 ctx.fill();
                 ctx.stroke();
                 ctx.globalAlpha = 1.0;
-                ctx.drawImage(el, legendX, legendY);
+                try {
+                  ctx.drawImage(el, legendX, legendY);
+                } catch (e) {
+                  error('Unable to draw legend image ' + legendUrl);
+                }
               }
             }
           }
