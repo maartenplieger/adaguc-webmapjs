@@ -1606,6 +1606,7 @@ export default class WMJSMap {
     this.callBack.triggerEvent('onmapready');
     this.mapBusy = false;
     this.drawPending = false;
+    this.layersBusy = false;
     this.callBack.triggerEvent('onloadingcomplete');
   };
 
@@ -1818,7 +1819,13 @@ export default class WMJSMap {
     this._draw(this._animationList);
   }
   draw (animationList) {
-    // console.log('**************** draw', animationList);
+    if (this.mapBusy) {
+      try {
+        this.divBuffer[this.currentSwapBuffer].display(this.updateBBOX, this.loadedBBOX);
+      } catch (e) {
+        console.log(e);
+      }
+    };
     if (this.isDestroyed) {
       console.log('start draw destroyed map: ' + this.mainElement.id, animationList);
       return;
@@ -1834,6 +1841,9 @@ export default class WMJSMap {
     }
     if (this.drawPending) {
       this.needsRedraw = true;
+      // console.log('DrawPending');
+      // this._updateBoundingBox();
+      // this.flipBuffers();
       // console.log('DrawPending');
       return;
     }
@@ -2326,6 +2336,7 @@ export default class WMJSMap {
 
   detachEvents () {
     this.baseDiv.off('mousedown');
+    this.baseDiv.off('contextmenu');
     // this.baseDiv.off('mousewheel');
     removeMouseWheelEvent(jquery(this.baseDiv).get(0), this.mouseWheelEvent);
     deleteEvent(document, 'mouseup', this.mouseUpEvent);
@@ -2334,6 +2345,7 @@ export default class WMJSMap {
 
   attachEvents () {
     this.baseDiv.on('mousedown', this.mouseDownEvent);
+    this.baseDiv.on('contextmenu', () => { return false; });
     // this.baseDiv.on('mousewheel', this.mouseWheelEvent);
     addMouseWheelEvent(jquery(this.baseDiv).get(0), this.mouseWheelEvent);
     attachEvent(document, 'mouseup', this.mouseUpEvent);
@@ -2718,6 +2730,24 @@ export default class WMJSMap {
     return { x:relX, y:relY };
   };
 
+  _detectLeftButton (evt) {
+    evt = evt || window.event;
+    if ('buttons' in evt) {
+      return evt.buttons === 1;
+    }
+    let button = evt.which || evt.button;
+    return button === 1;
+  };
+
+  _detectRightButton (evt) {
+    evt = evt || window.event;
+    if ('buttons' in evt) {
+      return evt.buttons === 2;
+    }
+    let button = evt.which || evt.button;
+    return button === 2;
+  };
+
   mouseDown (mouseCoordX, mouseCoordY, event) {
     let shiftKey = false;
     if (event) {
@@ -2725,16 +2755,6 @@ export default class WMJSMap {
         shiftKey = true;
       }
     }
-
-    let detectLeftButton = (evt) => {
-      evt = evt || window.event;
-      if ('buttons' in evt) {
-        return evt.buttons === 1;
-      }
-      let button = evt.which || evt.button;
-      return button === 1;
-    };
-
     this.mouseDownX = mouseCoordX;
     this.mouseDownY = mouseCoordY;
     this.mouseDownPressed = 1;
@@ -2746,7 +2766,8 @@ export default class WMJSMap {
             mouseY:mouseCoordY,
             mouseDown:true,
             event:event,
-            leftButton: detectLeftButton(event),
+            leftButton: this._detectLeftButton(event),
+            rightButton: this._detectRightButton(event),
             shiftKey: shiftKey
           }
         );
@@ -2829,7 +2850,7 @@ export default class WMJSMap {
     this.mouseUp(mouseCoords.x, mouseCoords.y, e);
   };
 
-  mouseMove (mouseCoordX, mouseCoordY) {
+  mouseMove (mouseCoordX, mouseCoordY, event) {
     this.mouseX = mouseCoordX;
     this.mouseY = mouseCoordY;
     if (this.mouseDragging === 0) {
@@ -2837,7 +2858,9 @@ export default class WMJSMap {
         'beforemousemove', {
           mouseX:this.mouseX,
           mouseY:this.mouseY,
-          mouseDown:this.mouseDownPressed === 1
+          mouseDown:this.mouseDownPressed === 1,
+          leftButton: this._detectLeftButton(event),
+          rightButton: this._detectRightButton(event)
         }
       );
       for (let j = 0; j < triggerResults.length; j++) {
