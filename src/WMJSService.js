@@ -36,7 +36,6 @@ let loadGetCapabilitiesViaProxy = (url, succes, fail, xml2jsonrequestURL) => {
     errormessage({ 'error': 'Request failed for ' + getcapreq });
   }
 };
-// import WMJSXMLParser from './WMJSXMLParser.js';
 /**
   * Global getcapabilities function
   */
@@ -75,7 +74,6 @@ export const WMJSGetCapabilities = (service, forceReload, succes, fail, xml2json
   let url = service + '&service=WMS&request=GetCapabilities&random' + Math.random();
 
   let _xml2jsonrequestURL = xml2jsonrequestURL;
-
   WMJSXMLParser(url, headers).then((data) => {
     try {
       succes(data);
@@ -83,7 +81,6 @@ export const WMJSGetCapabilities = (service, forceReload, succes, fail, xml2json
       console.error(e);
     }
   }).catch((e) => {
-    debug('Unable to use browser based XML reading, trying proxy: ', e);
     loadGetCapabilitiesViaProxy(url, succes,
       () => {
         fail('Request failed for ' + url);
@@ -124,6 +121,7 @@ export class WMJSService {
     this.getLayerObjectsFlat = this.getLayerObjectsFlat.bind(this);
     this.xml2jsonrequestURL = options.xml2jsonrequestURL ? options.xml2jsonrequestURL : config.xml2jsonrequestURL;
     this.functionCallbackList = [];
+    console.log('new service for ' + options.service);
   }
 
   checkVersion111 (jsonData) {
@@ -217,6 +215,9 @@ export class WMJSService {
     * @param failcallback Function called upon failure, cannot be left blank
     */
   getCapabilities (succescallback, failcallback, forceReload, xml2jsonrequestURL = this.xml2jsonrequestURL, options) {
+    if (options) {
+      this._options = options;
+    }
     if (this.busy) {
       let cf = { callback:succescallback, fail:failcallback };
       this.functionCallbackList.push(cf);
@@ -279,6 +280,9 @@ export class WMJSService {
         } catch (e) {
           this.onlineresource = I18n.not_available_message.text;
         }
+        // Fill in flatlayer object
+        this.getLayerObjectsFlat(() => {}, () => {}, false, xml2jsonrequestURL, options);
+
         let current;
         while (current = this.functionCallbackList.pop()) {
           current.callback(jsonData);
@@ -426,7 +430,10 @@ export class WMJSService {
   /** Calls succes with an array of all layerobjects
    * Calls failure when something goes wrong
    */
-  getLayerObjectsFlat (succes, failure, forceReload, xml2jsonrequestURL = this.xml2jsonrequestURL) {
+  getLayerObjectsFlat (succes, failure, forceReload, xml2jsonrequestURL = this.xml2jsonrequestURL, options = this._options) {
+    if (!xml2jsonrequestURL) {
+      xml2jsonrequestURL = this.xml2jsonrequestURL;
+    }
     if (isDefined(this._flatLayerObject) && forceReload !== true) {
       succes(this._flatLayerObject);
       return;
@@ -449,6 +456,6 @@ export class WMJSService {
 
       succes(this._flatLayerObject);
     };
-    this.getNodes(callback, failure, forceReload, xml2jsonrequestURL);
+    this.getNodes(callback, failure, forceReload, xml2jsonrequestURL, options);
   }
 };
